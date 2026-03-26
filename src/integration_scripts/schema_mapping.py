@@ -55,8 +55,8 @@ def extract_information(df: pd.DataFrame, orig_attr: str, target_attr: dict) -> 
     return df
 
 
-if __name__ == "__main__":
+# if __name__ == "__main__":
     
-    df = load_dataset("beridzeg45/video-games")
-    mapped_df = apply_mapping(df, DATASET3)
-    print(mapped_df)
+#     df = load_dataset("beridzeg45/video-games")
+#     mapped_df = apply_mapping(df, DATASET3)
+#     print(mapped_df)
