@@ -20,7 +20,21 @@ This corresponds to a 1:n mapping with information extraction.
 - Differences in naming:
     - PS4 vs PlayStation 4
 
+Console Mapping:
+1. Created a list of all unique console/platform values across datasets along with their frequencies
+2. Used a LLM based on the list to create mapping rules for normalization
+3. Applied the mapping rules to standardize console/platform names across datasets
+
 ### TODO
 - [ ] Normalize date formats across datasets
 
+
+Matching: 
+- title -> levenshtein/jaro, high similarity
+- release date -> exact match
+- platform -> exact match
+
 ## 4. Data Quality Assessment / Data Fusion
+
+dataset1: last update is sometimes newer than release_date
+    - Diablo IV,All,Role-Playing,Blizzard Entertainment,Blizzard Entertainment,,,,,,,01-12-2022,29-10-2020

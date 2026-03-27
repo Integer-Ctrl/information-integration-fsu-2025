@@ -1,11 +1,11 @@
 import ast
-
+import hashlib
 import pandas as pd
 from src.integration_scripts.data_extraction import load_dataset
 from src.utils.mappings import DATASET1, DATASET2, DATASET3
 
 
-def apply_mapping(df: pd.DataFrame, mapping: dict) -> pd.DataFrame:
+def apply_mapping(source: str, df: pd.DataFrame, mapping: dict) -> pd.DataFrame:
     df = df.copy()
 
     for orig_attr, target_attr in mapping.items():
@@ -18,11 +18,12 @@ def apply_mapping(df: pd.DataFrame, mapping: dict) -> pd.DataFrame:
         # 1:n mapping
         elif isinstance(target_attr, dict):
             # "[{'Platform': 'PC', 'Platform Metascore': '72', 'Platform Metascore Count': 'Based on 12 Critic Reviews'}, {'Platform': 'PlayStation 4', 'Platform Metascore': '69', 'Platform Metascore Count': 'Based on 11 Critic Reviews'}]"
-            # print(orig_attr + ", " + str(target_attr))
             df = extract_information(df, orig_attr, target_attr)
         else:
             raise ValueError(f"Invalid mapping for attribute '{orig_attr}': {target_attr}")
-        
+
+    # Add source column for provenance tracking
+    df["source"] = source
 
     return df
 
