@@ -3,13 +3,14 @@ import roman
 import re
 from difflib import SequenceMatcher
 from tqdm import tqdm
-from src.utils.mappings import PLATFORM as platform_mappings
+from src.utils.mappings import PLATFORM, GENRE
 
 def pre_normalize(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     
     df = normalize_dates(df)
-    df = normalize_platforms(df)
+    df = normalize_by_mapping(df, PLATFORM, "platform")
+    df = normalize_by_mapping(df, GENRE, "genre")
     df = normalize_title_numbers(df)
     df = remove_platform_all(df)
     df = remove_leading_trailing_whitespace(df)
@@ -33,12 +34,10 @@ def normalize_dates(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
-def normalize_platforms(df: pd.DataFrame) -> pd.DataFrame:
+def normalize_by_mapping(df: pd.DataFrame, mapping: dict, column: str) -> pd.DataFrame:
     df = df.copy()
-    
-    # Normalize platform names using the mapping
-    df["platform"] = df["platform"].str.lower().map(platform_mappings).fillna(df["platform"])
-    
+    if column in df.columns: # the column might not exist in all datasets
+        df[column] = df[column].str.lower().map(mapping).fillna(df[column])
     return df
 
 def normalize_title_numbers(df: pd.DataFrame) -> pd.DataFrame:

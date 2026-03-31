@@ -227,6 +227,11 @@ PLATFORM = {
     "vb": "Virtual Boy",
 }
 
+GENRE = {
+  "misc": "Miscellaneous",
+  "auto racing sim": "Racing",
+}
+
 
 # ============================================================
 # Notes for implementation

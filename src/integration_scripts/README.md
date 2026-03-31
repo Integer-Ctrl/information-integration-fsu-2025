@@ -26,8 +26,6 @@ Console Mapping:
 3. Applied the mapping rules to standardize console/platform names across datasets
 
 ### TODO
-- [ ] Normalize date formats across datasets
-
 
 Matching: 
 - title -> levenshtein/jaro, high similarity

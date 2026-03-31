@@ -5,7 +5,7 @@ idna==3.11
 kagglehub==1.0.0
 kagglesdk==0.1.16
 numpy==2.4.3
-packaging @ file:///home/task_176104874909647/conda-bld/packaging_1761049078203/work
+packaging==26.0
 pandas==3.0.1
 protobuf==7.34.1
 python-dateutil==2.9.0.post0
