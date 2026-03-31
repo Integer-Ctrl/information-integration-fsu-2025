@@ -90,15 +90,15 @@ def levenshtein_similarity(a: str, b: str) -> float:
 
 def compute_match_score_from_values(title1, title2, release1, release2, platform1, platform2) -> float:
     # exact platform match required
-    # if platform1 != platform2:
-    #     return 0.0
+    if has_value(platform1) and has_value(platform2) and platform1 != platform2:
+        return 0.0
 
     # exact release_date match if both exist
-    # if pd.notna(release1) and pd.notna(release2) and release1 != release2:
+    # if has_value(release1) and has_value(release2) and release1 != release2:
     #     return 0.0
 
     # release_date within 7 days is acceptable
-    if pd.notna(release1) and pd.notna(release2):
+    if has_value(release1) and has_value(release2):
         if abs((release1 - release2).days) > 7:
             return 0.0
 
@@ -112,10 +112,12 @@ def has_value(value) -> bool:
 
 def merge_records(row1: dict, row2: dict) -> dict:
     merged = {}
-    all_cols = set(row1.keys()).union(set(row2.keys()))
-    src1 = row1.get("source", pd.NA)
-    src2 = row2.get("source", pd.NA)
-    sources = set()
+    all_cols = set(row1.keys()).union(set(row2.keys())) - {"source"}
+    sources = {
+        source
+        for source in (row1.get("source", pd.NA), row2.get("source", pd.NA))
+        if has_value(source)
+    }
 
     for col in all_cols:
         v1 = row1.get(col, pd.NA)
@@ -135,10 +137,8 @@ def merge_records(row1: dict, row2: dict) -> dict:
             merged[col] = ",".join(genres) if genres else pd.NA
         elif has_value(v1):
             merged[col] = v1
-            sources.add(src1)
         elif has_value(v2):
             merged[col] = v2
-            sources.add(src2)
         else:
             merged[col] = pd.NA
 
