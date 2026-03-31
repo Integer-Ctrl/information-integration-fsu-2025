@@ -26,13 +26,15 @@ Console Mapping:
 3. Applied the mapping rules to standardize console/platform names across datasets
 
 ### TODO
-- [ ] Normalize date formats across datasets
-
 
 Matching: 
 - title -> levenshtein/jaro, high similarity
 - release date -> exact match
 - platform -> exact match
+
+
+Mount & Blade 2: Bannerlord -> gibt es mit 2 Jahren unterschied -> zwei Entitäten im Final Dataset
+
 
 ## 4. Data Quality Assessment / Data Fusion
 

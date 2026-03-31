@@ -24,6 +24,9 @@ def apply_mapping(source: str, df: pd.DataFrame, mapping: dict) -> pd.DataFrame:
 
     # Add source column for provenance tracking
     df["source"] = source
+    
+    # Add provenance column
+    df["provenance"] = pd.NA
 
     return df
 

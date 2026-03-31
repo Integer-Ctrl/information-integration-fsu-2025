@@ -6,13 +6,14 @@ Schema mappings (Correspondences) for Global-as-View (GAV) integration.
 - None: attribute is ignored (not part of target schema)
 """
 
+from src.utils.enums import ENTITY_RESOLUTION_TYPES
+
 
 # ============================================================
 # Global Target Schema
 # ============================================================
 
 TARGET_SCHEMA = [
-    "game_id", # unique identifier, generated as hash of title + platform at the end of transformation
     "title",
     "release_date",
     "developer",
@@ -25,8 +26,26 @@ TARGET_SCHEMA = [
     "summary",
     "product_rating",
     "total_sales",
-    "source", # provenance information: which dataset(s) contributed to this record
+    "source",
+    "provenance",
 ]
+
+ENTITY_RESOLUTION = {
+    "title": ENTITY_RESOLUTION_TYPES.LONGEST,
+    "release_date": ENTITY_RESOLUTION_TYPES.MIN,
+    "developer": ENTITY_RESOLUTION_TYPES.LONGEST,
+    "publisher": ENTITY_RESOLUTION_TYPES.LONGEST,
+    "genre": ENTITY_RESOLUTION_TYPES.UNION,
+    "platform": ENTITY_RESOLUTION_TYPES.NOTHING, # Entity resolution is based on exact match of platform -> no resolution required
+    "critic_score": ENTITY_RESOLUTION_TYPES.MAX,
+    "user_score": ENTITY_RESOLUTION_TYPES.MAX,
+    "metascore": ENTITY_RESOLUTION_TYPES.MAX,
+    "summary": ENTITY_RESOLUTION_TYPES.UNION,
+    "product_rating": ENTITY_RESOLUTION_TYPES.MAX,
+    "total_sales": ENTITY_RESOLUTION_TYPES.MAX,
+    "source": ENTITY_RESOLUTION_TYPES.UNION,
+    "provenance": ENTITY_RESOLUTION_TYPES.NOTHING,
+}
 
 
 # ============================================================
@@ -123,6 +142,7 @@ PLATFORM = {
 
     "xbox 360": "Xbox 360",
     "x360": "Xbox 360",
+    "xbox live": "Xbox 360",
 
     "xbox one": "Xbox One",
     "xone": "Xbox One",
@@ -225,6 +245,158 @@ PLATFORM = {
     "ngage": "N-Gage",
     "giz": "Gizmondo",
     "vb": "Virtual Boy",
+}
+
+GENRE = {
+    # Canonical top-level genres
+    "misc": "Miscellaneous",
+    "miscellaneous": "Miscellaneous",
+    "action": "Action",
+    "adventure": "Adventure",
+    "role-playing": "RPG",
+    "rpg": "RPG",
+    "sports": "Sports",
+    "shooter": "Shooter",
+    "platform": "Platform",
+    "strategy": "Strategy",
+    "racing": "Racing",
+    "puzzle": "Puzzle",
+    "simulation": "Simulation",
+    "fighting": "Fighting",
+
+    # Action / Adventure variants
+    "action adventure": "Action",
+    "action-adventure": "Action",
+    "open-world action": "Action",
+    "linear action adventure": "Action",
+    "first-person adventure": "Adventure",
+    "third-person adventure": "Adventure",
+    "point-and-click": "Point-and-Click",
+    "text adventure": "Adventure",
+    "visual novel": "Adventure",
+    "survival": "Survival",
+    "sandbox": "Sandbox",
+
+    # RPG variants
+    "action rpg": "RPG",
+    "jrpg": "RPG",
+    "rpg": "RPG",
+    "western rpg": "RPG",
+    "trainer rpg": "RPG",
+    "mmorpg": "RPG",
+    "mmo": "RPG",
+
+    # Shooter variants
+    "fps": "FPS,Shooter",
+    "third person shooter": "Shooter",
+    "tactical third person shooter": "Shooter",
+    "tactical fps": "FPS,Shooter",
+    "rail shooter": "Shooter",
+    "light gun": "Shooter",
+    "top-down shoot-'em-up": "Top-Down,Shooter",
+    "vertical shoot-'em-up": "Vertical,Shooter",
+    "horizontal shoot-'em-up": "Horizontal,Shooter",
+
+    # Platform / Fighting variants
+    "2d platformer": "Platform",
+    "3d platformer": "Platform",
+    "metroidvania": "Platform",
+    "2d fighting": "Fighting",
+    "3d fighting": "Fighting",
+    "2d beat-'em-up": "Fighting",
+    "3d beat-'em-up": "Fighting",
+    "wrestling": "Fighting",
+    "combat sport": "Sports",
+
+    # Strategy variants
+    "turn-based tactics": "Strategy",
+    "real-time strategy": "Strategy",
+    "command rts": "Strategy",
+    "turn-based strategy": "Strategy",
+    "real-time tactics": "Strategy",
+    "4x strategy": "Strategy",
+    "defense": "Strategy",
+    "artillery": "Strategy",
+    "moba": "Strategy",
+
+    # Racing variants
+    "auto racing": "Racing",
+    "auto racing sim": "Racing",
+    "arcade racing": "Racing",
+    "future racing": "Racing",
+    "racing sim": "Racing",
+    "horse racing": "Horse Racing",
+
+    # Puzzle / Board variants
+    "action puzzle": "Puzzle",
+    "matching puzzle": "Puzzle",
+    "logic puzzle": "Puzzle",
+    "stacking puzzle": "Puzzle",
+    "board": "Puzzle",
+    "board game": "Puzzle",
+    "card battle": "Puzzle",
+    "hidden object": "Puzzle",
+    "trivia": "Puzzle",
+
+    # Simulation variants
+    "tycoon": "Simulation",
+    "management": "Simulation",
+    "virtual life": "Simulation",
+    "virtual career": "Simulation",
+    "virtual pet": "Simulation",
+    "vehicle sim": "Simulation",
+    "aircraft combat sim": "Aircraft Simulation",
+    "vehicle combat sim": "Simulation",
+    "space combat sim": "Aircraft Simulation",
+    "marine combat sim": "Marine Simulation",
+    "aircraft sim": "Aircraft Simulation",
+    "space sim": "Aircraft Simulation",
+    "marine sim": "Marine Simulation",
+    "train sim": "Train Simulation",
+    "application": "Application",
+
+    # Sports variants
+    "soccer sim": "Football,Sports",
+    "football sim": "Football,Sports",
+    "basketball sim": "Basketball,Sports",
+    "baseball sim": "Baseball,Sports",
+    "golf sim": "Golf,Sports",
+    "soccer": "Football,Sports",
+    "football": "Football,Sports",
+    "basketball": "Basketball,Sports",
+    "baseball": "Baseball,Sports",
+    "golf": "Golf,Sports",
+    "hockey": "Hockey,Sports",
+    "tennis": "Tennis,Sports",
+    "skiing": "Skiing,Sports",
+    "athletics": "Sports",
+    "biking": "Biking,Sports",
+    "fishing": "Fishing,Sports",
+    "hunting": "Hunting,Sports",
+    "surfing": "Surfing,Sports",
+    "rugby": "Rugby,Sports",
+    "cricket": "Cricket,Sports",
+    "bowling": "Bowling,Sports",
+    "volleyball": "Volleyball,Sports",
+    "skating": "Skating,Sports",
+    "soccer management": "Football,Sports",
+    "individual sports": "Sports",
+    "team sports": "Sports",
+
+    # Misc/arcade/music/other variants
+    "arcade": "Arcade",
+    "party": "Party Game",
+    "compilation": "Miscellaneous",
+    "music": "Music",
+    "rhythm": "Music",
+    "dancing": "Dancing",
+    "pinball": "Pinball",
+    "gambling": "Gambling",
+    "future sport": "Sports",
+    "exercise": "Sports",
+    "edutainment": "Educational",
+    "education": "Educational",
+    "roguelike": "Roguelike",
 }
 
 
