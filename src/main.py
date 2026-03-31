@@ -13,15 +13,15 @@ os.makedirs(RAW_OUTPUT_DIR, exist_ok=True)
 os.makedirs(PROCESSED_OUTPUT_DIR, exist_ok=True)
 
 DATASETS = [
-    ("dataset1", "ujjwalaggarwal402/video-games-dataset", "Video Games Data.csv"),
-    ("dataset2", "maso0dahmed/video-games-data", None),
-    ("dataset3", "beridzeg45/video-games", None),
+    ("ds1", "ujjwalaggarwal402/video-games-dataset", "Video Games Data.csv"),
+    ("ds2", "maso0dahmed/video-games-data", None),
+    ("ds3", "beridzeg45/video-games", None),
 ]
 
 MAPPINGS = {
-    "dataset1": mappings.DATASET1,
-    "dataset2": mappings.DATASET2,
-    "dataset3": mappings.DATASET3
+    "ds1": mappings.DATASET1,
+    "ds2": mappings.DATASET2,
+    "ds3": mappings.DATASET3
 }
 
 def main():

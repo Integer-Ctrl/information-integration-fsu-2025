@@ -4,6 +4,8 @@ import re
 from difflib import SequenceMatcher
 from tqdm import tqdm
 from src.utils.mappings import PLATFORM, GENRE
+from src.utils.mappings import ENTITY_RESOLUTION
+from src.utils.enums import ENTITY_RESOLUTION_TYPES
 
 def pre_normalize(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
@@ -14,6 +16,7 @@ def pre_normalize(df: pd.DataFrame) -> pd.DataFrame:
     df = normalize_title_numbers(df)
     df = remove_platform_all(df)
     df = remove_leading_trailing_whitespace(df)
+    df = normalize_scores(df)
     
     df["summary"] = ""
     
@@ -21,6 +24,9 @@ def pre_normalize(df: pd.DataFrame) -> pd.DataFrame:
 
 def normalize_dates(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
+
+    if "release_date" in df.columns:
+        df["release_date"] = df["release_date"].replace(r"(?i)^\s*tbd\s*$", pd.NA, regex=True)
     
     # Convert release_date to datetime, handling errors and ensuring UTC timezone
     df["release_date"] = pd.to_datetime(
@@ -31,6 +37,16 @@ def normalize_dates(df: pd.DataFrame) -> pd.DataFrame:
 
     # Convert to date only (remove time component)
     df["release_date"] = df["release_date"].dt.date
+
+    return df
+
+def normalize_scores(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+
+    if "metascore" in df.columns:
+        df["metascore"] = df["metascore"].replace(r"(?i)^\s*tbd\s*$", pd.NA, regex=True)
+    if "user_score" in df.columns:
+        df["user_score"] = df["user_score"].replace(r"(?i)^\s*tbd\s*$", pd.NA, regex=True)
 
     return df
 
@@ -110,14 +126,26 @@ def has_value(value) -> bool:
     return pd.notna(value) and value != ""
 
 
+def union_delimited(v1, v2, delimiter=","):
+    """Combine two delimited values, deduplicating and preserving order."""
+    if has_value(v1) and has_value(v2):
+        return f"{v1}{delimiter}{v2}"
+    elif has_value(v1):
+        return v1
+    elif has_value(v2):
+        return v2
+    else:
+        return ""
+
+
 def merge_records(row1: dict, row2: dict) -> dict:
-    merged = {}
-    all_cols = set(row1.keys()).union(set(row2.keys())) - {"source"}
-    sources = {
-        source
-        for source in (row1.get("source", pd.NA), row2.get("source", pd.NA))
-        if has_value(source)
-    }
+    merged = {"provenance": ""}  # track which columns came from which source for transparency
+    
+    all_cols = set(row1.keys()).union(set(row2.keys()))
+    all_cols.discard("provenance")  # handle provenance separately
+    
+    src1 = row1.get("source", "")
+    src2 = row2.get("source", "")
 
     for col in all_cols:
         v1 = row1.get(col, pd.NA)
@@ -125,24 +153,38 @@ def merge_records(row1: dict, row2: dict) -> dict:
 
         # TODO: could implement more sophisticated conflict resolution here (e.g. prefer non-null, or use match score as weight for numeric fields), but for simplicity we just prefer values from row1 if present
         # TODO: define wether to UNION or use value from one dataset in case of non-null conflict (e.g. summary could be concatenated, while title should be chosen from one)
-        if col == "genre":
-            genres = []
-            for value in (v1, v2):
-                if not has_value(value):
-                    continue
-                for genre in str(value).split(","):
-                    genre = genre.strip()
-                    if genre and genre not in genres:
-                        genres.append(genre)
-            merged[col] = ",".join(genres) if genres else pd.NA
+        if has_value(v1) and has_value(v2):
+            if v1 == v2:
+                merged[col] = v1
+                merged["provenance"] = union_delimited(merged["provenance"], f"{col}=eq({src1},{src2})", delimiter=",")
+            else:
+                resolution_type = ENTITY_RESOLUTION.get(col, ENTITY_RESOLUTION_TYPES.NOTHING)
+                if resolution_type == ENTITY_RESOLUTION_TYPES.MIN:
+                    merged[col] = min(float(v1), float(v2))
+                    merged["provenance"] = union_delimited(merged["provenance"], f"{col}=min({src1},{src2})", delimiter=",")
+                elif resolution_type == ENTITY_RESOLUTION_TYPES.MAX:
+                    merged[col] = max(float(v1), float(v2))
+                    merged["provenance"] = union_delimited(merged["provenance"], f"{col}=max({src1},{src2})", delimiter=",")
+                elif resolution_type == ENTITY_RESOLUTION_TYPES.UNION:
+                    merged[col] = union_delimited(v1, v2, delimiter=",")
+                    merged["provenance"] = union_delimited(merged["provenance"], f"{col}=union({src1},{src2})", delimiter=",")
+                elif resolution_type == ENTITY_RESOLUTION_TYPES.LONGEST:
+                    if len(str(v1)) == len(str(v2)): # tie, prefer value from row1 arbitrarily
+                        merged[col] = v1
+                        merged["provenance"] = union_delimited(merged["provenance"], f"{col}=longest(tie:{src1},{src2})", delimiter=",")
+                    else: # prefer longest value
+                        merged[col] = v1 if len(str(v1)) > len(str(v2)) else v2
+                        merged["provenance"] = union_delimited(merged["provenance"], f"{col}=longest({src1},{src2})", delimiter=",")
+                else:
+                    merged[col] = v1  # prefer value from row1 arbitrarily
         elif has_value(v1):
             merged[col] = v1
+            merged["provenance"] = union_delimited(merged["provenance"], f"{col}=single({src1})", delimiter=",")
         elif has_value(v2):
             merged[col] = v2
+            merged["provenance"] = union_delimited(merged["provenance"], f"{col}=single({src2})", delimiter=",")
         else:
             merged[col] = pd.NA
-
-    merged["source"] = "|".join(sorted(sources)) if sources else pd.NA
 
     return merged
 
@@ -237,9 +279,16 @@ def merge_identities(df1: pd.DataFrame, df2: pd.DataFrame, threshold: float = 0.
                 # early stop on perfect title match
                 if best_score == 1.0:
                     break
-
+                
         if best_match is not None and best_score >= threshold:
-            merged_record = merge_records(row1_dict, df2_records[best_match])
+            for helper_key in ("_platform_key", "_title_key", "_release_key"):
+                row1_dict.pop(helper_key, None)
+
+            row2_dict = dict(df2_records[best_match])
+            for helper_key in ("_platform_key", "_title_key", "_release_key"):
+                row2_dict.pop(helper_key, None)
+
+            merged_record = merge_records(row1_dict, row2_dict)
             merged_record["match_score"] = best_score
             result_rows.append(merged_record)
             matched_df2.add(best_match)

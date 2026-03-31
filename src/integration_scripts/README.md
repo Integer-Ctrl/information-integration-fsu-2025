@@ -32,6 +32,10 @@ Matching:
 - release date -> exact match
 - platform -> exact match
 
+
+Mount & Blade 2: Bannerlord -> gibt es mit 2 Jahren unterschied -> zwei Entitäten im Final Dataset
+
+
 ## 4. Data Quality Assessment / Data Fusion
 
 dataset1: last update is sometimes newer than release_date
