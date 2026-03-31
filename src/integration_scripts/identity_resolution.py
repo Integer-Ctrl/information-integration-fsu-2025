@@ -106,9 +106,15 @@ def compute_match_score_from_values(title1, title2, release1, release2, platform
     return levenshtein_similarity(title1, title2)
 
 
+def has_value(value) -> bool:
+    return pd.notna(value) and value != ""
+
+
 def merge_records(row1: dict, row2: dict) -> dict:
     merged = {}
     all_cols = set(row1.keys()).union(set(row2.keys()))
+    src1 = row1.get("source", pd.NA)
+    src2 = row2.get("source", pd.NA)
     sources = set()
 
     for col in all_cols:
@@ -117,12 +123,22 @@ def merge_records(row1: dict, row2: dict) -> dict:
 
         # TODO: could implement more sophisticated conflict resolution here (e.g. prefer non-null, or use match score as weight for numeric fields), but for simplicity we just prefer values from row1 if present
         # TODO: define wether to UNION or use value from one dataset in case of non-null conflict (e.g. summary could be concatenated, while title should be chosen from one)
-        if pd.notna(v1) and v1 != "":
+        if col == "genre":
+            genres = []
+            for value in (v1, v2):
+                if not has_value(value):
+                    continue
+                for genre in str(value).split(","):
+                    genre = genre.strip()
+                    if genre and genre not in genres:
+                        genres.append(genre)
+            merged[col] = ",".join(genres) if genres else pd.NA
+        elif has_value(v1):
             merged[col] = v1
-            sources.add(row1.get("source", pd.NA)) # NA shoud not occur, but just in case
-        elif pd.notna(v2) and v2 != "":
+            sources.add(src1)
+        elif has_value(v2):
             merged[col] = v2
-            sources.add(row2.get("source", pd.NA))
+            sources.add(src2)
         else:
             merged[col] = pd.NA
 
