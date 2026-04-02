@@ -142,7 +142,8 @@ PLATFORM = {
 
     "xbox 360": "Xbox 360",
     "x360": "Xbox 360",
-    "xbox live": "Xbox 360",
+    "xbox live": "Xbox Network",
+    "xbox network": "Xbox Network",
 
     "xbox one": "Xbox One",
     "xone": "Xbox One",
@@ -190,6 +191,7 @@ PLATFORM = {
 
     # --- Digital Platforms ---
     "psn": "PlayStation Network",
+    "playstation network": "PlayStation Network",
     "xbl": "Xbox Live",
     "vc": "Virtual Console",
 
@@ -397,6 +399,16 @@ GENRE = {
     "edutainment": "Educational",
     "education": "Educational",
     "roguelike": "Roguelike",
+}
+
+DEV_PUB = {
+    "namco bandai games": "Bandai Namco Entertainment",
+    "bandai namco games": "Bandai Namco Entertainment",
+    "electronic arts": "Electronic Arts",
+    "ea": "Electronic Arts",
+    "ea sports": "Electronic Arts",
+    "warner bros. interactive": "Warner Bros. Interactive Entertainment",
+    "mojang ab": "Mojang",
 }
 
 

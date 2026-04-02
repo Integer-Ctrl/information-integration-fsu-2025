@@ -3,7 +3,7 @@ from pathlib import Path
 import pandas as pd
 from src.integration_scripts.data_extraction import load_dataset
 from src.integration_scripts.schema_mapping import apply_mapping
-from src.integration_scripts.identity_resolution import pre_normalize, merge_identities
+from src.integration_scripts.identity_resolution import pre_normalize, merge_identities_v2
 import src.utils.mappings as mappings
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -68,13 +68,22 @@ def main():
         normalized_df.to_csv(f"{PROCESSED_OUTPUT_DIR}/{name}_normalized.csv", index=False)
 
     # Merge datasets pairwise
-    df_intermediate_merge = merge_identities(NORMALIZED_DATA[0][1], NORMALIZED_DATA[1][1])
+    df_intermediate_merge = merge_identities_v2(NORMALIZED_DATA[0][1], NORMALIZED_DATA[1][1])
     df_intermediate_merge.to_csv(f"{PROCESSED_OUTPUT_DIR}/intermediate_merge.csv", index=False)
-    final_merged_df = merge_identities(df_intermediate_merge, NORMALIZED_DATA[2][1])
+    final_merged_df = merge_identities_v2(df_intermediate_merge, NORMALIZED_DATA[2][1])
     final_merged_df.to_csv(f"{PROCESSED_OUTPUT_DIR}/final_merged.csv", index=False)
 
-    counts = final_merged_df["platform"].value_counts()
-    counts.to_csv(f"{PROCESSED_OUTPUT_DIR}/platform_counts.csv")
+    # counts = final_merged_df["platform"].value_counts()
+    # counts.to_csv(f"{PROCESSED_OUTPUT_DIR}/platform_counts.csv")
+
+    dev_pub = pd.concat([
+        final_merged_df["developer"].value_counts(),
+        final_merged_df["publisher"].value_counts()
+    ])
+    dev_pub.to_csv(f"{PROCESSED_OUTPUT_DIR}/dev_pub_counts.csv")
+
+    
+    
 
     size_raw = sum(len(df) for _, df in RAW_DATA)
     size_final = len(final_merged_df)

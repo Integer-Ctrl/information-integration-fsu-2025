@@ -3,9 +3,10 @@ import roman
 import re
 from difflib import SequenceMatcher
 from tqdm import tqdm
-from src.utils.mappings import PLATFORM, GENRE
+from src.utils.mappings import PLATFORM, GENRE, DEV_PUB
 from src.utils.mappings import ENTITY_RESOLUTION
 from src.utils.enums import ENTITY_RESOLUTION_TYPES
+from datetime import date, datetime
 
 def pre_normalize(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
@@ -13,12 +14,12 @@ def pre_normalize(df: pd.DataFrame) -> pd.DataFrame:
     df = normalize_dates(df)
     df = normalize_by_mapping(df, PLATFORM, "platform")
     df = normalize_by_mapping(df, GENRE, "genre")
+    df = normalize_by_mapping(df, DEV_PUB, "developer")
+    df = normalize_by_mapping(df, DEV_PUB, "publisher")
     df = normalize_title_numbers(df)
-    df = remove_platform_all(df)
-    df = remove_leading_trailing_whitespace(df)
     df = normalize_scores(df)
-    
-    df["summary"] = ""
+    df = remove_platform_all_and_missing(df) # remove records with platform all or missing platform
+    df = remove_leading_trailing_whitespace(df)
     
     return df
 
@@ -32,7 +33,7 @@ def normalize_dates(df: pd.DataFrame) -> pd.DataFrame:
     df["release_date"] = pd.to_datetime(
         df["release_date"],
         errors="coerce",
-        utc=True
+        utc=True,
     )
 
     # Convert to date only (remove time component)
@@ -47,6 +48,8 @@ def normalize_scores(df: pd.DataFrame) -> pd.DataFrame:
         df["metascore"] = df["metascore"].replace(r"(?i)^\s*tbd\s*$", pd.NA, regex=True)
     if "user_score" in df.columns:
         df["user_score"] = df["user_score"].replace(r"(?i)^\s*tbd\s*$", pd.NA, regex=True)
+    if "critic_score" in df.columns:
+        df["critic_score"] = df["critic_score"].replace(r"(?i)^\s*tbd\s*$", pd.NA, regex=True)
 
     return df
 
@@ -87,9 +90,11 @@ def normalize_title_numbers(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def remove_platform_all(df: pd.DataFrame) -> pd.DataFrame:
+def remove_platform_all_and_missing(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
     df = df[df["platform"].str.lower() != "all"]
+    df = df[df["platform"].notnull()]
+
     return df
 
 def remove_leading_trailing_whitespace(df: pd.DataFrame) -> pd.DataFrame:
@@ -114,9 +119,9 @@ def compute_match_score_from_values(title1, title2, release1, release2, platform
     #     return 0.0
 
     # release_date within 7 days is acceptable
-    if has_value(release1) and has_value(release2):
-        if abs((release1 - release2).days) > 7:
-            return 0.0
+    # if has_value(release1) and has_value(release2):
+    #     if abs((release1 - release2).days) > 7:
+    #         return 0.0
 
     # fuzzy title match
     return levenshtein_similarity(title1, title2)
@@ -125,6 +130,13 @@ def compute_match_score_from_values(title1, title2, release1, release2, platform
 def has_value(value) -> bool:
     return pd.notna(value) and value != ""
 
+def min_columns(v1, v2):
+    if isinstance(v1, (int, float)) and isinstance(v2, (int, float)):
+        return min(v1, v2)
+    elif isinstance(v1, date) and isinstance(v2, date):
+        return min(v1, v2)
+    else:
+        return pd.NA
 
 def union_delimited(v1, v2, delimiter=","):
     """Combine two delimited values, deduplicating and preserving order."""
@@ -160,7 +172,7 @@ def merge_records(row1: dict, row2: dict) -> dict:
             else:
                 resolution_type = ENTITY_RESOLUTION.get(col, ENTITY_RESOLUTION_TYPES.NOTHING)
                 if resolution_type == ENTITY_RESOLUTION_TYPES.MIN:
-                    merged[col] = min(float(v1), float(v2))
+                    merged[col] = min_columns(v1, v2)
                     merged["provenance"] = union_delimited(merged["provenance"], f"{col}=min({src1},{src2})", delimiter=",")
                 elif resolution_type == ENTITY_RESOLUTION_TYPES.MAX:
                     merged[col] = max(float(v1), float(v2))
@@ -189,7 +201,122 @@ def merge_records(row1: dict, row2: dict) -> dict:
     return merged
 
 
-def merge_identities(df1: pd.DataFrame, df2: pd.DataFrame, threshold: float = 0.85) -> pd.DataFrame:
+def merge_identities_v2(df1: pd.DataFrame, df2: pd.DataFrame, threshold: float = 0.85) -> pd.DataFrame:
+    # 1. Pre-normalize datasets for better matching (e.g. unify platform names, normalize dates, etc.)
+    df1 = pre_normalize(df1.copy())
+    df2 = pre_normalize(df2.copy())
+
+    # 2. Ensure we always match smaller dataset against larger for efficiency
+    if len(df1) > len(df2):
+        df1, df2 = df2, df1
+        print(f"Swapped datasets for matching (smaller -> larger): {len(df1)} vs {len(df2)}")
+
+    # Stable indices so we can track matched rows from the larger dataset
+    df1 = df1.reset_index(drop=True)
+    df2 = df2.reset_index(drop=True)
+
+    def dates_within_x_days(d1, d2, x) -> bool:
+        if not has_value(d1) or not has_value(d2):
+            return False
+        if not isinstance(d1, date) or not isinstance(d2, date):
+            return False
+        return abs((d1 - d2).days) <= x
+    
+    # Faster access to rows as dicts
+    df1_records = df1.to_dict(orient="records")
+    df2_records = df2.to_dict(orient="records")
+
+    # Block larger dataset by platform and cache frequently used fields
+    platform_blocks = {}
+    for idx, row in enumerate(df2_records):
+        platform_key = row.get("platform")
+        block = platform_blocks.setdefault(platform_key, {
+            "indices": [],
+            "release_dates": [],
+            "titles": [],
+        })
+        block["indices"].append(idx)
+        block["release_dates"].append(row.get("release_date", pd.NA))
+        block["titles"].append(row.get("title", pd.NA))
+
+    merged_rows = []
+    matched_df2_indices = set()
+
+    for row1 in tqdm(df1_records, total=len(df1_records), desc="Merging identities"):
+        platform1 = row1.get("platform", pd.NA)
+        release1 = row1.get("release_date", pd.NA)
+        title1 = row1.get("title", pd.NA)
+
+        block = platform_blocks.get(platform1)
+
+        if block is None:
+            row1_dict = dict(row1)
+            row1_dict.setdefault("provenance", "")
+            merged_rows.append(row1_dict)
+            continue
+
+        candidate_indices = block["indices"]
+        candidate_release_dates = block["release_dates"]
+        candidate_titles = block["titles"]
+
+        # Date filteringinside platform block
+        if has_value(release1) and isinstance(release1, date):
+            filtered = [
+                (idx2, title2, release2)
+                for idx2, title2, release2 in zip(candidate_indices, candidate_titles, candidate_release_dates)
+                if dates_within_x_days(release1, release2, 60)
+            ]
+            
+            if filtered:
+                candidates = filtered
+            else:
+                candidates = list(zip(candidate_indices, candidate_titles, candidate_release_dates))
+        else:
+            candidates = list(zip(candidate_indices, candidate_titles, candidate_release_dates))
+
+        best_match_idx = None
+        best_score = 0.0
+
+        # print(f"Candidates for '{title1}' on platform '{platform1}' with release date '{release1}': {len(candidates)}")
+        for idx2, title2, release2 in candidates:
+            if idx2 in matched_df2_indices:
+                continue
+
+            row2 = df2_records[idx2]
+
+            # score = compute_match_score_from_values(
+            #     title1=title1,
+            #     title2=title2,
+            #     release1=release1,
+            #     release2=release2,
+            #     platform1=platform1,
+            #     platform2=row2.get("platform", pd.NA),
+            # )
+            score = levenshtein_similarity(title1, title2)
+
+            if score > best_score:
+                best_score = score
+                best_match_idx = idx2
+
+        if best_match_idx is not None and best_score >= threshold:
+            merged_row = merge_records(row1, df2_records[best_match_idx])
+            merged_rows.append(merged_row)
+            matched_df2_indices.add(best_match_idx)
+        else:
+            row1_dict = dict(row1)
+            row1_dict.setdefault("provenance", "")
+            merged_rows.append(row1_dict)
+
+    for idx2, row2 in enumerate(df2_records):
+        if idx2 not in matched_df2_indices:
+            row2_dict = dict(row2)
+            row2_dict.setdefault("provenance", "")
+            merged_rows.append(row2_dict)
+
+    return pd.DataFrame(merged_rows)
+
+
+def merge_identities_v1(df1: pd.DataFrame, df2: pd.DataFrame, threshold: float = 0.85) -> pd.DataFrame:
     df1 = pre_normalize(df1.copy())
     df2 = pre_normalize(df2.copy())
 
