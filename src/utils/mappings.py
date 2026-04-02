@@ -15,19 +15,19 @@ from src.utils.enums import ENTITY_RESOLUTION_TYPES
 
 TARGET_SCHEMA = [
     "title",
+    "platform",
     "release_date",
     "developer",
     "publisher",
     "genre",
-    "platform",
     "critic_score",
     "user_score",
     "metascore",
-    "summary",
     "product_rating",
     "total_sales",
     "source",
     "provenance",
+    "summary",
 ]
 
 ENTITY_RESOLUTION = {
@@ -282,7 +282,6 @@ GENRE = {
     # RPG variants
     "action rpg": "RPG",
     "jrpg": "RPG",
-    "rpg": "RPG",
     "western rpg": "RPG",
     "trainer rpg": "RPG",
     "mmorpg": "RPG",

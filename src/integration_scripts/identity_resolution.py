@@ -1,12 +1,13 @@
 import pandas as pd
 import roman
 import re
-from difflib import SequenceMatcher
+from Levenshtein import ratio
 from tqdm import tqdm
-from src.utils.mappings import PLATFORM, GENRE, DEV_PUB
+from src.utils.mappings import PLATFORM, GENRE, DEV_PUB, TARGET_SCHEMA
 from src.utils.mappings import ENTITY_RESOLUTION
 from src.utils.enums import ENTITY_RESOLUTION_TYPES
-from datetime import date, datetime
+from datetime import date
+
 
 def pre_normalize(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
@@ -22,6 +23,7 @@ def pre_normalize(df: pd.DataFrame) -> pd.DataFrame:
     df = remove_leading_trailing_whitespace(df)
     
     return df
+
 
 def normalize_dates(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
@@ -41,6 +43,7 @@ def normalize_dates(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+
 def normalize_scores(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
 
@@ -53,11 +56,13 @@ def normalize_scores(df: pd.DataFrame) -> pd.DataFrame:
 
     return df
 
+
 def normalize_by_mapping(df: pd.DataFrame, mapping: dict, column: str) -> pd.DataFrame:
     df = df.copy()
     if column in df.columns: # the column might not exist in all datasets
         df[column] = df[column].str.lower().map(mapping).fillna(df[column])
     return df
+
 
 def normalize_title_numbers(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
@@ -103,32 +108,15 @@ def remove_leading_trailing_whitespace(df: pd.DataFrame) -> pd.DataFrame:
         df[col] = df[col].apply(lambda x: x.strip() if isinstance(x, str) else x)
     return df
 
-def levenshtein_similarity(a: str, b: str) -> float:
+def normalized_levenshtein_similarity(a: str, b: str) -> float:
     if pd.isna(a) or pd.isna(b):
         return 0.0
-    return SequenceMatcher(None, str(a), str(b)).ratio()
-
-
-def compute_match_score_from_values(title1, title2, release1, release2, platform1, platform2) -> float:
-    # exact platform match required
-    if has_value(platform1) and has_value(platform2) and platform1 != platform2:
-        return 0.0
-
-    # exact release_date match if both exist
-    # if has_value(release1) and has_value(release2) and release1 != release2:
-    #     return 0.0
-
-    # release_date within 7 days is acceptable
-    # if has_value(release1) and has_value(release2):
-    #     if abs((release1 - release2).days) > 7:
-    #         return 0.0
-
-    # fuzzy title match
-    return levenshtein_similarity(title1, title2)
+    return ratio(str(a), str(b))
 
 
 def has_value(value) -> bool:
     return pd.notna(value) and value != ""
+
 
 def min_columns(v1, v2):
     if isinstance(v1, (int, float)) and isinstance(v2, (int, float)):
@@ -137,6 +125,7 @@ def min_columns(v1, v2):
         return min(v1, v2)
     else:
         return pd.NA
+
 
 def union_delimited(v1, v2, delimiter=","):
     """Combine two delimited values, deduplicating and preserving order."""
@@ -201,7 +190,12 @@ def merge_records(row1: dict, row2: dict) -> dict:
     return merged
 
 
-def merge_identities_v2(df1: pd.DataFrame, df2: pd.DataFrame, threshold: float = 0.85) -> pd.DataFrame:
+def merge_identities(df1: pd.DataFrame, df2: pd.DataFrame, threshold: float = 0.85) -> pd.DataFrame:
+
+    # Goal:
+    # 1. Block by platform and release year +/- 1 year to reduce candidate pairs (with edge case handling for missing release dates)
+    # 2. Compute match score for candidates using title similarity and release date proximity: score = 0.8 * title_similarity + 0.2 * release_date_similarity, where title_similarity is normalized Levenshtein similarity and release_date_similarity is 1 if release dates equal, 0.9 if within 3 days, 0.8 if within 6 days, ... >30 days is 0
+
     # 1. Pre-normalize datasets for better matching (e.g. unify platform names, normalize dates, etc.)
     df1 = pre_normalize(df1.copy())
     df2 = pre_normalize(df2.copy())
@@ -215,89 +209,175 @@ def merge_identities_v2(df1: pd.DataFrame, df2: pd.DataFrame, threshold: float =
     df1 = df1.reset_index(drop=True)
     df2 = df2.reset_index(drop=True)
 
-    def dates_within_x_days(d1, d2, x) -> bool:
-        if not has_value(d1) or not has_value(d2):
-            return False
-        if not isinstance(d1, date) or not isinstance(d2, date):
-            return False
-        return abs((d1 - d2).days) <= x
-    
+    # Tage seit Epoch (1970-01-01) als numerischer Wert für release_date, damit wir schneller nach ähnlichen release_dates filtern können (z.B. innerhalb von 30 Tagen)
+    df1_dt_temp = pd.to_datetime(df1['release_date'], errors='coerce')
+    df1['days_since_release'] = (df1_dt_temp - pd.Timestamp("1970-01-01")).dt.days
+    df2_dt_temp = pd.to_datetime(df2['release_date'], errors='coerce')
+    df2['days_since_release'] = (df2_dt_temp - pd.Timestamp("1970-01-01")).dt.days
+
+    # Replace invalid datetime with pd.NA
+    df1.loc[df1_dt_temp.isna(), 'days_since_epoch'] = pd.NA
+    df2.loc[df2_dt_temp.isna(), 'days_since_epoch'] = pd.NA
+
     # Faster access to rows as dicts
     df1_records = df1.to_dict(orient="records")
     df2_records = df2.to_dict(orient="records")
 
-    # Block larger dataset by platform and cache frequently used fields
-    platform_blocks = {}
+    def normalized_release_date_similarity(release1, release2) -> float:
+        """
+        Compute normalized release date similarity based on absolute day difference.
+
+        Rules:
+        - 1.0 if same day
+        - 0.9 if within 7 days
+        - 0.8 if within 15 days
+        - ...
+        - 0.0 if more than 70 days apart or missing values
+
+        Args:
+            release1: First release date.
+            release2: Second release date.
+
+        Returns:
+            float: Similarity score in [0.0, 1.0].
+        """
+        if not has_value(release1) or not has_value(release2):
+            return 0.0
+
+        if not isinstance(release1, date) or not isinstance(release2, date):
+            return 0.0
+
+        delta_days = abs((release1 - release2).days)
+        
+        return max(0.0, 1 - delta_days / 365) # linear decay over 1 year
+
+    def compute_match_score(row1: dict, row2: dict) -> float:
+        """
+        Compute weighted match score for two candidate rows.
+
+        Platform mismatch is treated as a hard reject.
+
+        Args:
+            row1 (dict): First record.
+            row2 (dict): Second record.
+
+        Returns:
+            float: Weighted similarity score.
+        """
+        platform1 = row1.get("platform", pd.NA)
+        platform2 = row2.get("platform", pd.NA)
+
+        # Exact platform match required if both have a value
+        if has_value(platform1) and has_value(platform2) and platform1 != platform2:
+            return 0.0
+
+        title_score = normalized_levenshtein_similarity(
+            row1.get("title", pd.NA),
+            row2.get("title", pd.NA),
+        )
+        release_score = normalized_release_date_similarity(
+            row1.get("release_date", pd.NA),
+            row2.get("release_date", pd.NA),
+        )
+
+        NORMELIZED_TITLE_WEIGHT = 0.85
+        return NORMELIZED_TITLE_WEIGHT * title_score + (1 - NORMELIZED_TITLE_WEIGHT) * release_score
+
+    # Block larger dataset by platform and year of release
+    #
+    # Block contains indices of release date one year before and after to allow
+    # edge cases (e.g. 2002-12-30 vs 2003-01-02) to still match.
+    #
+    # Example block key:
+    #   ("pc", 2003)
+    #
+    # Edge case 1:
+    #   entity from smaller dataset has no release date
+    #   -> match against all entities on same platform in larger dataset
+    #
+    # Edge case 2:
+    #   entity from larger dataset has no release date
+    #   -> include in platform-wide fallback block so it can still be matched
+    blocks = {}
+    platform_only_blocks = {}
+
     for idx, row in enumerate(df2_records):
         platform_key = row.get("platform")
-        block = platform_blocks.setdefault(platform_key, {
+        release_date = row.get("release_date", pd.NA)
+
+        # Platform-wide fallback block
+        platform_block = platform_only_blocks.setdefault(platform_key, {
             "indices": [],
             "release_dates": [],
             "titles": [],
         })
-        block["indices"].append(idx)
-        block["release_dates"].append(row.get("release_date", pd.NA))
-        block["titles"].append(row.get("title", pd.NA))
+        platform_block["indices"].append(idx)
+        platform_block["release_dates"].append(release_date)
+        platform_block["titles"].append(row.get("title", pd.NA))
+
+        # TODO: ensure all entries without release date are included in all platform-year blocks for that platform
+        # Year-based blocks
+        if has_value(release_date) and isinstance(release_date, date):
+            year_key = release_date.year
+
+            # Add row to blocks for year-1, year, year+1
+            # so querying only the exact year of the smaller row is enough
+            for y in (year_key - 1, year_key, year_key + 1):
+                block_key = (platform_key, y)
+                block = blocks.setdefault(block_key, {
+                    "indices": [],
+                    "release_dates": [],
+                    "titles": [],
+                })
+                block["indices"].append(idx)
+                block["release_dates"].append(release_date)
+                block["titles"].append(row.get("title", pd.NA))
 
     merged_rows = []
     matched_df2_indices = set()
 
-    for row1 in tqdm(df1_records, total=len(df1_records), desc="Merging identities"):
+    # Iterate over smaller dataset and compare only against relevant blocks
+    for row1 in tqdm(df1_records, total=len(df1_records), desc="Merging identities v3"):
         platform1 = row1.get("platform", pd.NA)
         release1 = row1.get("release_date", pd.NA)
-        title1 = row1.get("title", pd.NA)
 
-        block = platform_blocks.get(platform1)
+        # Determine candidate block:
+        # - if release_date exists -> platform + exact year block
+        # - otherwise -> full platform block
+        if has_value(release1) and isinstance(release1, date):
+            candidate_block = blocks.get((platform1, release1.year))
+        else:
+            candidate_block = platform_only_blocks.get(platform1)
 
-        if block is None:
+        # Fallback to platform-only block if year block does not exist
+        if candidate_block is None:
+            candidate_block = platform_only_blocks.get(platform1)
+
+        # No candidates on this platform -> keep row unchanged
+        if candidate_block is None:
             row1_dict = dict(row1)
             row1_dict.setdefault("provenance", "")
             merged_rows.append(row1_dict)
             continue
 
-        candidate_indices = block["indices"]
-        candidate_release_dates = block["release_dates"]
-        candidate_titles = block["titles"]
-
-        # Date filteringinside platform block
-        if has_value(release1) and isinstance(release1, date):
-            filtered = [
-                (idx2, title2, release2)
-                for idx2, title2, release2 in zip(candidate_indices, candidate_titles, candidate_release_dates)
-                if dates_within_x_days(release1, release2, 60)
-            ]
-            
-            if filtered:
-                candidates = filtered
-            else:
-                candidates = list(zip(candidate_indices, candidate_titles, candidate_release_dates))
-        else:
-            candidates = list(zip(candidate_indices, candidate_titles, candidate_release_dates))
+        candidate_indices = candidate_block["indices"]
 
         best_match_idx = None
         best_score = 0.0
 
-        # print(f"Candidates for '{title1}' on platform '{platform1}' with release date '{release1}': {len(candidates)}")
-        for idx2, title2, release2 in candidates:
+        # Evaluate all unmatched candidates in the selected block
+        for idx2 in candidate_indices:
             if idx2 in matched_df2_indices:
                 continue
 
             row2 = df2_records[idx2]
-
-            # score = compute_match_score_from_values(
-            #     title1=title1,
-            #     title2=title2,
-            #     release1=release1,
-            #     release2=release2,
-            #     platform1=platform1,
-            #     platform2=row2.get("platform", pd.NA),
-            # )
-            score = levenshtein_similarity(title1, title2)
+            score = compute_match_score(row1, row2)
 
             if score > best_score:
                 best_score = score
                 best_match_idx = idx2
 
+        # Merge best candidate if above threshold
         if best_match_idx is not None and best_score >= threshold:
             merged_row = merge_records(row1, df2_records[best_match_idx])
             merged_rows.append(merged_row)
@@ -307,147 +387,33 @@ def merge_identities_v2(df1: pd.DataFrame, df2: pd.DataFrame, threshold: float =
             row1_dict.setdefault("provenance", "")
             merged_rows.append(row1_dict)
 
+    # Add remaining unmatched rows from the larger dataset
     for idx2, row2 in enumerate(df2_records):
         if idx2 not in matched_df2_indices:
             row2_dict = dict(row2)
             row2_dict.setdefault("provenance", "")
             merged_rows.append(row2_dict)
 
-    return pd.DataFrame(merged_rows)
+    result = pd.DataFrame(merged_rows)
 
+    # Remove helper column from final output
+    if "days_since_epoch" in result.columns:
+        result = result.drop(columns=["days_since_epoch"])
 
-def merge_identities_v1(df1: pd.DataFrame, df2: pd.DataFrame, threshold: float = 0.85) -> pd.DataFrame:
-    df1 = pre_normalize(df1.copy())
-    df2 = pre_normalize(df2.copy())
-
-    # smaller -> larger
-    if len(df1) > len(df2):
-        df1, df2 = df2, df1
-        print(f"Swapped datasets for matching (smaller -> larger): {len(df1)} vs {len(df2)}")
-
-    # helper columns prepared once
-    df1["_platform_key"] = df1["platform"].astype(str).str.strip().str.lower()
-    df2["_platform_key"] = df2["platform"].astype(str).str.strip().str.lower()
-
-    df1["_title_key"] = df1["title"].astype(str).str.strip().str.lower()
-    df2["_title_key"] = df2["title"].astype(str).str.strip().str.lower()
-
-    df1["_release_key"] = df1["release_date"]
-    df2["_release_key"] = df2["release_date"]
-
-    # turn df2 into dict records once
-    df2_records = df2.to_dict(orient="index")
-
-    # build blocking index for df2:
-    # first by (platform, release_date), fallback later by platform only
-    block_exact = {}
-    block_platform = {}
-
-    for idx, row in df2.iterrows():
-        p = row["_platform_key"]
-        r = row["_release_key"]
-
-        block_platform.setdefault(p, []).append(idx)
-        block_exact.setdefault((p, r), []).append(idx)
-
-    result_rows = []
-    matched_df2 = set()
-
-    cols = list(df1.columns)
-    idx_platform = cols.index("_platform_key")
-    idx_title = cols.index("_title_key")
-    idx_release = cols.index("_release_key")
-
-    for row1 in tqdm(df1.itertuples(index=True, name=None), total=len(df1), desc="Matching df1 vs df2"):
-        idx1 = row1[0]  # Index ist erstes Element
-
-        platform1 = row1[idx_platform + 1]
-        title1 = row1[idx_title + 1]
-        release1 = row1[idx_release + 1]
-
-        row1_dict = df1.loc[idx1].to_dict()
-
-        # blocking:
-        # if release exists -> use exact (platform, release_date)
-        # else -> use platform only
-        if pd.notna(release1):
-            candidate_indices = block_exact.get((platform1, release1), [])
-        else:
-            candidate_indices = block_platform.get(platform1, [])
-
-        if not candidate_indices:
-            single_record = row1_dict
-            single_record["match_score"] = pd.NA
-            result_rows.append(single_record)
-            continue
-
-        best_match = None
-        best_score = 0.0
-
-        for idx2 in candidate_indices:
-            if idx2 in matched_df2:
-                continue
-
-            row2 = df2_records[idx2]
-
-            score = compute_match_score_from_values(
-                title1=title1,
-                title2=row2["_title_key"],
-                release1=release1,
-                release2=row2["_release_key"],
-                platform1=platform1,
-                platform2=row2["_platform_key"],
-            )
-
-            if score > best_score:
-                best_score = score
-                best_match = idx2
-
-                # early stop on perfect title match
-                if best_score == 1.0:
-                    break
-                
-        if best_match is not None and best_score >= threshold:
-            for helper_key in ("_platform_key", "_title_key", "_release_key"):
-                row1_dict.pop(helper_key, None)
-
-            row2_dict = dict(df2_records[best_match])
-            for helper_key in ("_platform_key", "_title_key", "_release_key"):
-                row2_dict.pop(helper_key, None)
-
-            merged_record = merge_records(row1_dict, row2_dict)
-            merged_record["match_score"] = best_score
-            result_rows.append(merged_record)
-            matched_df2.add(best_match)
-        else:
-            single_record = row1_dict
-            single_record["match_score"] = pd.NA
-            result_rows.append(single_record)
-
-    # add unmatched rows from df2
-    for idx2, row2_dict in df2_records.items():
-        if idx2 not in matched_df2:
-            single_record = dict(row2_dict)
-            single_record["match_score"] = pd.NA
-            result_rows.append(single_record)
-
-    result = pd.DataFrame(result_rows)
-
-    # helper columns entfernen
-    helper_cols = ["_platform_key", "_title_key", "_release_key"]
-    result = result.drop(columns=[c for c in helper_cols if c in result.columns], errors="ignore")
+    result = reorder_to_target_schema(result)
 
     return result
-        
 
-if __name__ == "__main__":
-    df1 = pd.read_csv("data/processed/dataset1_mapped.csv")
-    df2 = pd.read_csv("data/processed/dataset2_mapped.csv")
-    df3 = pd.read_csv("data/processed/dataset3_mapped.csv")
 
-    df1 = normalize_dates(df1)
-    df2 = normalize_dates(df2)
-    df3 = normalize_dates(df3)
+def reorder_to_target_schema(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Reorder DataFrame columns according to TARGET_SCHEMA.
+    Missing columns are ignored, extra columns are appended at the end.
+    """
+    # Columns that exist in df and are in TARGET_SCHEMA
+    ordered_cols = [col for col in TARGET_SCHEMA if col in df.columns]
 
-    print(df3) # 2013-09-17 00:00:00+00:00
+    # Any additional columns not in TARGET_SCHEMA
+    remaining_cols = [col for col in df.columns if col not in TARGET_SCHEMA]
 
+    return df[ordered_cols + remaining_cols]

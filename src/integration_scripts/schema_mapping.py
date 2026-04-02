@@ -1,8 +1,5 @@
 import ast
-import hashlib
 import pandas as pd
-from src.integration_scripts.data_extraction import load_dataset
-from src.utils.mappings import DATASET1, DATASET2, DATASET3
 
 
 def apply_mapping(source: str, df: pd.DataFrame, mapping: dict) -> pd.DataFrame:
@@ -29,6 +26,7 @@ def apply_mapping(source: str, df: pd.DataFrame, mapping: dict) -> pd.DataFrame:
     df["provenance"] = pd.NA
 
     return df
+
 
 def extract_information(df: pd.DataFrame, orig_attr: str, target_attr: dict) -> pd.DataFrame:
     df = df.copy()
@@ -57,10 +55,3 @@ def extract_information(df: pd.DataFrame, orig_attr: str, target_attr: dict) -> 
 
     df = pd.concat([df, extracted_df], axis=1)
     return df
-
-
-# if __name__ == "__main__":
-    
-#     df = load_dataset("beridzeg45/video-games")
-#     mapped_df = apply_mapping(df, DATASET3)
-#     print(mapped_df)
