@@ -154,13 +154,75 @@ The attribute `provenance` is used to keep track of the integration process and 
 
 ## 4. Data Quality Assessment
 
-First lets have a look at some numerical statistics of the integrated dataset. The sum of records across all three input datasets is **96872**, while the final integrated dataset contains **80523** records. This means that we were able to match and merge a significant number of records across datasets.
+The evaluation of the integrated dataset was performed by analyzing the output of the integration process. If unregularities or issues were observed, the provenance information was used to reverse-engineer the integration process and identify the source of the issue. This allowed us to determine whether the issue originated from the input data or from the integration process itself.
 
+### Overall Integration Result
 
-<!-- F: ich würde Evaluation in zwei Teilbereiche unterteilen: -->
-<!-- F: ## Input data quality -->
-<!-- F: ## Integrated (output) data quality -->
-<!-- Dadurch kann man besser unterteilen was an uns lag, was an den Quelldaten lag und ob und wenn wir input Probleme addressiert haben -->
+The three input datasets contain a total of **96,872** records, while the final
+integrated dataset contains **80,523** records. This indicates that a substantial
+number of records were successfully matched and merged.
+
+For games that exist in multiple datasets, the integration process successfully combined information from different sources, resulting in a richer dataset with more attributes per game.
+
+### Data Quality Issues
+
+Issues in the input data and the integration process lead to various data quality problems in the final dataset.
+
+#### Missing and Sparse Attributes
+
+1. Many attributes are only present in one of the datatets, leading to a high number of missing values in the final dataset. For example: 
+    - `critic_score`: only in dataset 1 -> missing for all unmatched records from dataset two and three
+    - `summary`: only in dataset 2 -> missing for all unmatched records from dataset one and three
+
+2. Some attributes of the same title exist only for a specific platform. Because the entity resolution is only able to match records of the same platform, these attributes cannot be propagated to other platforms. For example:
+    - `summary`: different or overall missing for different platforms
+      ```
+      Grand Theft Auto 5,PlayStation 5,2014-11-18,    [...],
+      Grand Theft Auto 5,Xbox Series X / S,2014-11-18,[...],
+      Grand Theft Auto 5,PC,2014-11-18,               [...],"Los Santos: a sprawling sun-soaked metropolis..."
+      Grand Theft Auto 5,PlayStation 4,2014-11-18,    [...],"The sprawling sun-soaked metropolis of Los Santos..."
+      ```
+    - `genre`: same game can be listed with different genres on different platforms -> heterogeneous information that is not propagated across platforms
+
+#### Duplicates and Ambiguities
+
+1. Some games have multiple entries in the same input dataset. Because we only match each record to one record in the other dataset, this leads to duplicates in the final dataset. For example:
+    - `Dataset two`: two entries for `4x4 EVO 2,PC` -> duplicate in final dataset
+2. The informaion extraction from dataset three assigns the same release date to multiple platforms, which leads to incorrect combinations after splitting into multiple records. For example:
+    - `Dataset three`: The records for `Grand Theft Auto V` have the same release date of `2014-11-18` for all platforms, which is not correct, e.g the PlayStation 5 was released later.
+
+#### Inconsistencies
+
+2. Inconsistent Representations
+    - Variations in titles (e.g., *"Grand Theft Auto 5"* vs. *"GTA V"*)
+    - Differences in platform naming (e.g., *"PlayStation 4"* vs. *"PS4"*)
+    - Different date formats and possible regional release differences
+
+    Some of these inconsistencies were normalized (e.g., platform names), but not all can be resolved without external knowledge.
+
+3. Logical inconsistencies in the input data. For example:
+    - `Dataset two`: *Diablo IV* has a `last_update` of `2023-11-01` which is earlier than its `release_date` of `2023-11-06`, which is not possible. This indicates an error in the input data that cannot be resolved through integration.
+
+### Conclusion and Possible Improvements
+
+The integration successfully combines heterogeneous datasets and increases the
+overall information content per entity. However, the final dataset still reflects
+limitations of the input data, particularly regarding missing values and
+inconsistencies.
+
+Importantly, many observed issues originate from the **source data itself** and
+cannot be fully resolved without external validation or enrichment (e.g. the release dates).
+
+**Possible Improvements**
+
+- Use additional attributes (developer, genre) for more robust matching to not only rely on title and release date
+- Introduce validation rules (e.g., release date should be before last update or release date should match platform generation)
+- Propagate attributes across platforms for the same game to reduce sparsity
+- Integrate additional datasets to reduce sparsity
+- Flag uncertain matches instead of enforcing merges
+- Deduplicate records in input datasets before integration to reduce duplicates in the final dataset or do it as post-processing step after integration
+
+<!-- Old below -->
 
 After integrating the three datasets, the overall data quality can be considered **mixed**. While the integration process was successful in combining information from multiple sources, several issues remain that affect the usability of the final dataset.
 
