@@ -1,5 +1,6 @@
 __pycache__/
 .vscode/
+.DS_Store
 *.csv
 !games_dataset_1.csv
 !games_dataset_2.csv
