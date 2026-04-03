@@ -143,11 +143,10 @@ def merge_records(row1: dict, row2: dict) -> dict:
     
     Conflict resolution rules are specified in the ENTITY_RESOLUTION mapping, which defines how to resolve conflicts for specific columns.
     For example:
-    - If resolution type is MIN, take the minimum of the two values (for numeric or date fields).
-    - If resolution type is MAX, take the maximum of the two values (for numeric or date fields).
+    - If resolution type is MIN, take the minimum of the two values for numeric or date fields, or the shorter of two strings for string fields.
+    - If resolution type is MAX, take the maximum of the two values for numeric or date fields, or the longer of two strings for string fields.
     - If resolution type is UNION, combine the values into a delimited string (genre).
-    - If resolution type is LONGEST, take the longest value (title).
-    - If resolution type is NOTHING or not specified, prefer value from row1 if present, otherwise take value from row2.
+    - If resolution type is NOTHING, values are identical or the resolution is handled externally (provenance)
     
     Args:
         row1 (dict): First record.
