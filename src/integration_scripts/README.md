@@ -2,6 +2,33 @@
 
 ## 1. Data Collection / Extraction
 
+File: [data_extraction.py](./data_extraction.py)
+
+We use three CSV datasets from Kaggle related to video games.
+They share some attributes but also contain dataset-specific information.
+
+- **Dataset 1**
+  - Name: 
+  - Url: https://www.kaggle.com/datasets/ujjwalaggarwal402/video-games-dataset/data
+  - Format: CSV
+  - #entities: 64017
+  - #attributes: 14
+  - attributes: img,title,console,genre,publisher,developer,critic_score,total_sales,na_sales,jp_sales,pal_sales,other_sales,release_date,last_update
+- **Dataset 2**
+  - Name: Video Games Data
+  - Url: https://www.kaggle.com/datasets/maso0dahmed/video-games-data
+  - Format: CSV
+  - #entities: 18800
+  - #attributes: 5
+  - attributes: name,platform,release_date,summary,user_review
+- **Dataset 3**
+  - Name: 🎮Video Games Dataset
+  - Url: https://www.kaggle.com/datasets/beridzeg45/video-games
+  - Format: CSV
+  - #entities: 14055
+  - #attributes: 9
+  - attributes: Title,Release Date,Developer,Publisher,Genres,Product Rating,User Score,User Ratings Count,Platforms Info
+
 ## 2. Schema Mapping / Data Translation
 
 In this project, we adopt a Global-as-View (GAV) approach for schema integration.

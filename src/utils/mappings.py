@@ -30,13 +30,17 @@ TARGET_SCHEMA = [
     "summary",
 ]
 
+# ============================================================
+# Resolution Strategies for Entity Matching
+# ============================================================
+
 ENTITY_RESOLUTION = {
-    "title": ENTITY_RESOLUTION_TYPES.LONGEST,
+    "title": ENTITY_RESOLUTION_TYPES.MAX,
     "release_date": ENTITY_RESOLUTION_TYPES.MIN,
-    "developer": ENTITY_RESOLUTION_TYPES.LONGEST,
-    "publisher": ENTITY_RESOLUTION_TYPES.LONGEST,
+    "developer": ENTITY_RESOLUTION_TYPES.MAX,
+    "publisher": ENTITY_RESOLUTION_TYPES.MAX,
     "genre": ENTITY_RESOLUTION_TYPES.UNION,
-    "platform": ENTITY_RESOLUTION_TYPES.NOTHING, # Entity resolution is based on exact match of platform -> no resolution required
+    "platform": ENTITY_RESOLUTION_TYPES.NOTHING,
     "critic_score": ENTITY_RESOLUTION_TYPES.MAX,
     "user_score": ENTITY_RESOLUTION_TYPES.MAX,
     "metascore": ENTITY_RESOLUTION_TYPES.MAX,
@@ -47,9 +51,8 @@ ENTITY_RESOLUTION = {
     "provenance": ENTITY_RESOLUTION_TYPES.NOTHING,
 }
 
-
 # ============================================================
-# Dataset 1 Mapping
+# Dataset 1 Mapping to Target Schema
 # ============================================================
 
 DATASET1 = {
@@ -71,7 +74,7 @@ DATASET1 = {
 
 
 # ============================================================
-# Dataset 2 Mapping
+# Dataset 2 Mapping to Target Schema
 # ============================================================
 
 DATASET2 = {
@@ -82,9 +85,8 @@ DATASET2 = {
     "user_review": "user_score",
 }
 
-
 # ============================================================
-# Dataset 3 Mapping
+# Dataset 3 Mapping to Target Schema
 # ============================================================
 
 DATASET3 = {
@@ -98,7 +100,6 @@ DATASET3 = {
     "User Ratings Count": None,
     "Platforms Info": {"Platform": "platform", "Platform Metascore": "metascore", "Platform Metascore Count": None}, # information extraction required
 }
-
 
 # ============================================================
 # Platform Mapping
@@ -248,6 +249,10 @@ PLATFORM = {
     "giz": "Gizmondo",
     "vb": "Virtual Boy",
 }
+
+# ============================================================
+# Genre Mapping
+# ============================================================
 
 GENRE = {
     # Canonical top-level genres
@@ -400,6 +405,10 @@ GENRE = {
     "roguelike": "Roguelike",
 }
 
+# ============================================================
+# Developer & Publisher Mapping
+# ============================================================
+
 DEV_PUB = {
     "namco bandai games": "Bandai Namco Entertainment",
     "bandai namco games": "Bandai Namco Entertainment",
@@ -409,26 +418,3 @@ DEV_PUB = {
     "warner bros. interactive": "Warner Bros. Interactive Entertainment",
     "mojang ab": "Mojang",
 }
-
-
-# ============================================================
-# Notes for implementation
-# ============================================================
-
-"""
-Special handling required:
-
-- "Platforms Info" (Dataset 3):
-  -> contains multiple values (platform, metascore, review count)
-  -> requires parsing / information extraction
-  -> only 'platform' is mapped to target schema
-
-- All attributes mapped to None:
-  -> should be ignored during transformation
-
-- Missing target attributes:
-  -> must be filled with NULL / NaN
-
-- This file defines ONLY correspondences
-  -> actual transformations are implemented in schema_mapping.py
-"""

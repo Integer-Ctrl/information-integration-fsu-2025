@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 from src.integration_scripts.data_extraction import load_dataset
 from src.integration_scripts.schema_mapping import apply_mapping
-from src.integration_scripts.identity_resolution import pre_normalize, merge_identities
+from src.integration_scripts.identity_resolution import merge_identities
 import src.utils.mappings as mappings
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -31,7 +31,6 @@ def main():
 
     RAW_DATA = []
     MAPPED_DATA = []
-    NORMALIZED_DATA = []
 
     # Step 1: Load dataset
     for name, dataset_id, file in DATASETS:
@@ -49,39 +48,15 @@ def main():
         MAPPED_DATA.append((name, mapped_df))
 
         # (Optional) Save mapped datasets for reference
-        mapped_df.to_csv(f"{PROCESSED_OUTPUT_DIR}/{name}_mapped.csv", index=False)
-
-
-    # Intermediate output for verification
-    # First: Concatenate all mapped datasets into one DataFrame, Second: Sort by title, Third: Save to CSV
-    # final_df = pd.concat([df for _, df in MAPPED_DATA], ignore_index=True)
-    # final_df = final_df.sort_values(by="title")
-    # print(final_df)
-    # final_df.to_csv(f"{PROCESSED_OUTPUT_DIR}/mapped_data.csv", index=False)
+        # mapped_df.to_csv(f"{PROCESSED_OUTPUT_DIR}/{name}_mapped.csv", index=False)
 
     # Step 3: Identity resolution (normalize and merge records referring to the same game across datasets)
-    for name, df in MAPPED_DATA:
-        normalized_df = pre_normalize(df)
-        NORMALIZED_DATA.append((name, normalized_df))
+    df_intermediate_merge = merge_identities(MAPPED_DATA[0][1], MAPPED_DATA[1][1])
+    final_merged_df = merge_identities(df_intermediate_merge, MAPPED_DATA[2][1])
 
-        # (Optional) Save normalized datasets for reference
-        normalized_df.to_csv(f"{PROCESSED_OUTPUT_DIR}/{name}_normalized.csv", index=False)
-
-    # Merge datasets pairwise
-    df_intermediate_merge = merge_identities(NORMALIZED_DATA[0][1], NORMALIZED_DATA[1][1])
-    # df_intermediate_merge.to_csv(f"{PROCESSED_OUTPUT_DIR}/intermediate_merge.csv", index=False)
-    final_merged_df = merge_identities(df_intermediate_merge, NORMALIZED_DATA[2][1])
+    # Final cleanup: sort by title and save final integrated dataset
     final_merged_df = final_merged_df.sort_values(by="title")
     final_merged_df.to_csv(f"{PROCESSED_OUTPUT_DIR}/games_integrated_dataset.csv", index=False)
-
-    # counts = final_merged_df["platform"].value_counts()
-    # counts.to_csv(f"{PROCESSED_OUTPUT_DIR}/platform_counts.csv")
-
-    # dev_pub = pd.concat([
-    #     final_merged_df["developer"].value_counts(),
-    #     final_merged_df["publisher"].value_counts()
-    # ])
-    # dev_pub.to_csv(f"{PROCESSED_OUTPUT_DIR}/dev_pub_counts.csv")
 
     size_raw = sum(len(df) for _, df in RAW_DATA)
     size_final = len(final_merged_df)
