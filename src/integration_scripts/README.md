@@ -1,5 +1,14 @@
 # Information Integration
 
+The information integration process consists of the following steps:
+1. [Data Collection / Extraction](#1-data-collection--extraction)
+2. [Schema Mapping / Data Translation](#2-schema-mapping--data-translation)
+3. [Identity Resolution](#3-identity-resolution)
+4. [Data Quality Assessment](#4-data-quality-assessment)
+
+Each step besides data quality assessment is implemented in a separate script, which can be executed independently.
+The scripts are designed to be modular and are combined in the [main.py](../main.py) script, which executes the entire integration pipeline from data extraction to the final integrated dataset.
+
 ## 1. Data Collection / Extraction
 
 File: [data_extraction.py](./data_extraction.py)
@@ -111,7 +120,7 @@ To obtain the predefined mappings for normalization, we first created (using pan
 
 ### Matching Logic
 
-Using only titles is not sufficient, as many games share identical names across platforms or within a series For example, "Grand Theft Auto 3" vs. "Grand Theft Auto 4" have a high string similarity but are clearly different games. Including the release date helps distinguish between such cases, as they are released at different times.
+Using only titles is not sufficient, as many games share nearly identical names across platforms or within a series. For example, "Grand Theft Auto 3" vs. "Grand Theft Auto 4" have a high string similarity but are clearly different games. Including the release date helps distinguish between such cases, as they are released at different times.
 
 However, this comes with its own challenges, as the dates are specified in different formats across datasets and can be missing or inconsistent. 
 Release dates can also vary across regions, such as "4x4 Evo 2" on PC, which has two entries with dates for EU and NA.
@@ -187,9 +196,9 @@ Issues in the input data and the integration process lead to various data qualit
 #### Duplicates and Ambiguities
 
 1. Some games have multiple entries in the same input dataset. Because we only match each record to one record in the other dataset, this leads to duplicates in the final dataset. For example:
-    - `Dataset two`: two entries for `4x4 EVO 2,PC` -> duplicate in final dataset
+    - `Dataset 2`: two entries for `4x4 EVO 2,PC` -> duplicate in final dataset
 2. The informaion extraction from dataset three assigns the same release date to multiple platforms, which leads to incorrect combinations after splitting into multiple records. For example:
-    - `Dataset three`: The records for `Grand Theft Auto V` have the same release date of `2014-11-18` for all platforms, which is not correct, e.g the PlayStation 5 was released later.
+    - `Dataset 3`: The records for `Grand Theft Auto V` have the same release date of `2014-11-18` for all platforms, which is not correct, e.g the PlayStation 5 was released later.
 
 #### Inconsistencies
 
@@ -201,7 +210,7 @@ Issues in the input data and the integration process lead to various data qualit
     Some of these inconsistencies were normalized (e.g., platform names), but not all can be resolved without external knowledge.
 
 3. Logical inconsistencies in the input data. For example:
-    - `Dataset two`: *Diablo IV* has a `last_update` of `2023-11-01` which is earlier than its `release_date` of `2023-11-06`, which is not possible. This indicates an error in the input data that cannot be resolved through integration.
+    - `Dataset 2`: *Diablo IV* has a `last_update` of `2023-11-01` which is earlier than its `release_date` of `2023-11-06`, which is not possible. This indicates an error in the input data that cannot be resolved through integration.
 
 ### Conclusion and Possible Improvements
 
@@ -221,72 +230,3 @@ cannot be fully resolved without external validation or enrichment (e.g. the rel
 - Integrate additional datasets to reduce sparsity
 - Flag uncertain matches instead of enforcing merges
 - Deduplicate records in input datasets before integration to reduce duplicates in the final dataset or do it as post-processing step after integration
-
-<!-- Old below -->
-
-After integrating the three datasets, the overall data quality can be considered **mixed**. While the integration process was successful in combining information from multiple sources, several issues remain that affect the usability of the final dataset.
-
-### General Observations
-
-- The integration increases the amount of available information per game.
-- However, due to limited overlap between datasets, many attributes are still missing.
-- Some inconsistencies from the source data could not be fully resolved.
-
-### Identified Issues
-
-<!-- F: das haben wir doch normalisiert? Die genannten Beispiele haben wir doch perfekt behandelt -->
-#### 1. Inconsistent Formats and Naming
-
-- Different date formats (e.g., `2014-11-18`, `18-11-2014`, `November 18, 2014`)
-- Variations in titles (e.g., *"Grand Theft Auto 5"* vs. *"GTA V"*)
-- Variations in platform names (e.g., *"PlayStation 4"* vs. *"PS4"*)
-
-We addressed this partially (e.g., platform normalization), but not all inconsistencies could be removed.
-
-<!-- F: das ist doch aber nicht unser Problem. Wir können nur auf den gegebenen Daten arbeiten und nicht die Quelldaten ändern um z.B. einen score zu erzeugen-->
-#### 2. Missing Values
-
-- Many attributes are only present in one dataset (e.g., scores, reviews)
-- This leads to a high number of NULL values in the final dataset
-- Dataset 1 also contains many `"Unknown"` entries for developer and publisher
-
-Example:
-- *#DRIVE Rally* has no score or rating information after integration
-
-<!-- F: Input data quality -->
-#### 3. Temporal Issues
-
-- Some date values are inconsistent or implausible
-  - Example: *Diablo IV* has a `last_update` earlier than its `release_date`
-- Release dates can differ across datasets (e.g., due to regional releases)
-
-<!-- F: Input data quality -->
-#### 4. Ambiguities from Integration
-
-- Dataset 3 assigns one release date to multiple platforms
-  - After splitting into multiple records, this can lead to incorrect combinations
-  - Example: *GTA V* assigned to PlayStation 5 with a 2014 release date
-
-- User-related attributes are not directly comparable:
-  - *user_score* vs. *user_review* (no common scale or definition)
-
-<!-- F: Input data quality -->
-### 5. Dublicate in input data
-4x4 Evo 2 -> PC
-
-
-<!-- F: Intgrated data quality -->
-- Attribute die nur an einer Kosole hängen werden nicht auf andere Platform propagiert, e.g. Genre, Summary
-
-### Possible Improvements
-
-- Improve normalization of titles and platforms (e.g., more mapping rules)
-- Use additional attributes (developer, genre) for better identity resolution
-- Apply simple validation rules (e.g., release date should match platform generation)
-- Integrate additional datasets to reduce missing values
-- Handle ambiguous cases more carefully (e.g., flag instead of duplicating)
-
-### Conclusion
-
-The integrated dataset is usable but still contains **missing values, inconsistencies, and some incorrect mappings**.  
-With additional cleaning and validation steps, the data quality could be improved further.
