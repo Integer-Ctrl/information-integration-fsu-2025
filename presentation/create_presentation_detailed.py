@@ -166,15 +166,15 @@ def s02_toc(prs):
 
     sections = [
         ("1", "Project Motivation & Problem Statement",       "Slide 3"),
-        ("2", "Data Sources",                                 "Slides 4–6"),
-        ("3", "Integration Architecture",                     "Slide 7"),
-        ("4", "Step 1 – Data Collection & Extraction",        "Slide 8"),
-        ("5", "Step 2 – Schema Mapping",                      "Slides 9–11"),
-        ("6", "Step 3 – Identity Resolution: Preprocessing",  "Slides 12–13"),
-        ("7", "Step 3 – Identity Resolution: Matching",       "Slides 14–15"),
-        ("8", "Step 3 – Identity Resolution: Merging",        "Slide 16"),
-        ("9", "Data Quality Assessment",                      "Slides 17–18"),
-        ("10", "Results & Summary",                           "Slides 19–20"),
+        ("2", "Data Sources",                                 "Slides 4–5"),
+        ("3", "Integration Architecture",                     "Slide 6"),
+        ("4", "Step 1 – Data Collection & Extraction",        "Slide 7"),
+        ("5", "Step 2 – Schema Mapping",                      "Slides 8–10"),
+        ("6", "Step 3 – Identity Resolution: Preprocessing",  "Slides 11–12"),
+        ("7", "Step 3 – Identity Resolution: Matching",       "Slides 13–14"),
+        ("8", "Step 3 – Identity Resolution: Merging",        "Slide 15"),
+        ("9", "Data Quality Assessment",                      "Slides 16–17"),
+        ("10", "Results & Summary",                           "Slides 18–19"),
     ]
     y = Inches(1.15)
     for num, section, pages in sections:
@@ -244,121 +244,102 @@ def s03_motivation(prs):
                  size=12)
 
 
-# ── Slide 4 – Dataset 1 ──────────────────────────────────────────────────────
-def s04_ds1(prs):
+# ── Slide 4 – All Datasets ───────────────────────────────────────────────────
+def s04_datasets(prs):
     slide = blank_slide(prs)
     set_bg(slide, DARK_BG)
-    title_bar(slide, "Data Source 1 – Video Games Dataset",
-              "ujjwalaggarwal402/video-games-dataset  ·  Kaggle")
+    title_bar(slide, "Data Sources Overview",
+              "Three Kaggle video game datasets with complementary attributes")
 
-    stats = [("Records", "64 017"), ("Attributes", "14"), ("Format", "CSV")]
-    x = Inches(0.35)
-    for label, val in stats:
-        add_rect(slide, x, Inches(1.15), Inches(3.9), Inches(0.95), CARD_BG)
-        add_text(slide, val, x + Inches(0.1), Inches(1.2),
-                 Inches(3.7), Inches(0.5), size=28, bold=True,
-                 color=ACCENT, align=PP_ALIGN.CENTER)
-        add_text(slide, label, x + Inches(0.1), Inches(1.7),
-                 Inches(3.7), Inches(0.3), size=12, color=LIGHT_GREY,
-                 align=PP_ALIGN.CENTER)
-        x += Inches(4.2)
-
-    section_label(slide, "Attributes & Mapping Decision", Inches(2.2))
-
-    attrs = [
-        ("img",          "NULL – irrelevant image URL"),
-        ("title",        "1:1  → title"),
-        ("console",      "1:1  → platform"),
-        ("genre",        "1:1  → genre"),
-        ("publisher",    "1:1  → publisher"),
-        ("developer",    "1:1  → developer"),
-        ("critic_score", "1:1  → critic_score"),
-        ("total_sales",  "1:1  → total_sales  (global sales in millions)"),
-        ("na_sales",     "NULL – regional breakdown not in target schema"),
-        ("jp_sales",     "NULL – regional breakdown not in target schema"),
-        ("pal_sales",    "NULL – regional breakdown not in target schema"),
-        ("other_sales",  "NULL – regional breakdown not in target schema"),
-        ("release_date", "1:1  → release_date"),
-        ("last_update",  "NULL – metadata only, not needed"),
+    datasets_info = [
+        (
+            "Dataset 1",
+            "ujjwalaggarwal402/video-games-dataset",
+            "64 017 records  ·  14 attributes",
+            [
+                ("img",          "NULL",          True),
+                ("title",        "→ title",        False),
+                ("console",      "→ platform",     False),
+                ("genre",        "→ genre",        False),
+                ("publisher",    "→ publisher",    False),
+                ("developer",    "→ developer",    False),
+                ("critic_score", "→ critic_score", False),
+                ("total_sales",  "→ total_sales",  False),
+                ("na_sales",     "NULL",           True),
+                ("jp_sales",     "NULL",           True),
+                ("pal_sales",    "NULL",           True),
+                ("other_sales",  "NULL",           True),
+                ("release_date", "→ release_date", False),
+                ("last_update",  "NULL",           True),
+            ]
+        ),
+        (
+            "Dataset 2",
+            "maso0dahmed/video-games-data",
+            "18 800 records  ·  5 attributes",
+            [
+                ("name",         "→ title",        False),
+                ("platform",     "→ platform",     False),
+                ("release_date", "→ release_date", False),
+                ("summary",      "→ summary",      False),
+                ("user_review",  "→ user_score",   False),
+            ]
+        ),
+        (
+            "Dataset 3",
+            "beridzeg45/video-games",
+            "14 055 records  ·  9 attributes",
+            [
+                ("Title",              "→ title",          False),
+                ("Release Date",       "→ release_date",   False),
+                ("Developer",          "→ developer",      False),
+                ("Publisher",          "→ publisher",      False),
+                ("Genres",             "→ genre",          False),
+                ("Product Rating",     "→ product_rating", False),
+                ("User Score",         "→ user_score",     False),
+                ("User Ratings Count", "NULL",             True),
+                ("Platforms Info",     "1:n → platform\n+ metascore", False),
+            ]
+        ),
     ]
-    y = Inches(2.6)
-    rh = Inches(0.315)
-    for i, (attr, mapping) in enumerate(attrs):
-        bg = ROW_A if i % 2 == 0 else ROW_B
-        add_rect(slide, Inches(0.35), y, Inches(12.6), rh, bg)
-        add_text(slide, attr,    Inches(0.5),  y + Inches(0.04), Inches(2.5), rh, size=11,
-                 bold=True, color=WHITE)
-        add_text(slide, mapping, Inches(3.1),  y + Inches(0.04), Inches(9.6), rh, size=11,
-                 color=LIGHT_GREY if "NULL" not in mapping else ACCENT3)
-        y += rh
 
+    card_w = Inches(4.08)
+    gap    = Inches(0.2)
+    rh     = Inches(0.33)
+    card_top = Inches(1.15)
 
-# ── Slide 5 – Dataset 2 & 3 ──────────────────────────────────────────────────
-def s05_ds23(prs):
-    slide = blank_slide(prs)
-    set_bg(slide, DARK_BG)
-    title_bar(slide, "Data Sources 2 & 3",
-              "maso0dahmed/video-games-data  ·  beridzeg45/video-games")
+    for ci, (ds_name, kaggle_id, meta, attrs) in enumerate(datasets_info):
+        x = Inches(0.35) + ci * (card_w + gap)
 
-    # DS2 card
-    add_rect(slide, Inches(0.35), Inches(1.15), Inches(6.1), Inches(5.7), CARD_BG)
-    add_text(slide, "Dataset 2 – Video Games Data", Inches(0.5), Inches(1.2),
-             Inches(5.8), Inches(0.35), size=14, bold=True, color=ACCENT)
-    add_text(slide, "18 800 records · 5 attributes",
-             Inches(0.5), Inches(1.55), Inches(5.8), Inches(0.28),
-             size=12, color=ACCENT3)
-    ds2_attrs = [
-        ("name",         "1:1  → title"),
-        ("platform",     "1:1  → platform"),
-        ("release_date", "1:1  → release_date"),
-        ("summary",      "1:1  → summary  (game description text)"),
-        ("user_review",  "1:1  → user_score"),
-    ]
-    y = Inches(1.9)
-    rh = Inches(0.48)
-    for i, (attr, mapping) in enumerate(ds2_attrs):
-        bg = ROW_A if i % 2 == 0 else ROW_B
-        add_rect(slide, Inches(0.5), y, Inches(5.8), rh, bg)
-        add_text(slide, attr,    Inches(0.6),  y + Inches(0.08), Inches(1.6), rh, size=11, bold=True, color=WHITE)
-        add_text(slide, mapping, Inches(2.3),  y + Inches(0.08), Inches(3.9), rh, size=11, color=LIGHT_GREY)
-        y += rh
-    add_text(slide,
-             "Dataset 2 is the only source of game summaries. "
-             "Its user_review maps to user_score, but the score scale may differ from Dataset 3.",
-             Inches(0.5), Inches(4.45), Inches(5.8), Inches(0.8),
-             size=11, italic=True, color=SUBTITLE_C)
+        # Card background
+        add_rect(slide, x, card_top, card_w, Inches(6.1), CARD_BG)
 
-    # DS3 card
-    add_rect(slide, Inches(6.85), Inches(1.15), Inches(6.1), Inches(5.7), CARD_BG)
-    add_text(slide, "Dataset 3 – 🎮 Video Games Dataset", Inches(7.0), Inches(1.2),
-             Inches(5.8), Inches(0.35), size=14, bold=True, color=ACCENT)
-    add_text(slide, "14 055 records · 9 attributes (before 1:n expansion)",
-             Inches(7.0), Inches(1.55), Inches(5.8), Inches(0.28),
-             size=12, color=ACCENT3)
-    ds3_attrs = [
-        ("Title",              "1:1  → title"),
-        ("Release Date",       "1:1  → release_date"),
-        ("Developer",          "1:1  → developer"),
-        ("Publisher",          "1:1  → publisher"),
-        ("Genres",             "1:1  → genre"),
-        ("Product Rating",     "1:1  → product_rating  (e.g. PEGI 18)"),
-        ("User Score",         "1:1  → user_score"),
-        ("User Ratings Count", "NULL – count, not in target schema"),
-        ("Platforms Info",     "1:n  → platform + metascore per row"),
-    ]
-    y = Inches(1.9)
-    for i, (attr, mapping) in enumerate(ds3_attrs):
-        bg = ROW_A if i % 2 == 0 else ROW_B
-        add_rect(slide, Inches(7.0), y, Inches(5.8), rh, bg)
-        add_text(slide, attr,    Inches(7.1),  y + Inches(0.08), Inches(2.0), rh, size=11, bold=True, color=WHITE)
-        add_text(slide, mapping, Inches(9.2),  y + Inches(0.08), Inches(3.5), rh, size=11,
-                 color=LIGHT_GREY if "NULL" not in mapping else ACCENT3)
-        y += rh
-    add_text(slide,
-             "The 1:n expansion of Platforms Info multiplies record count: "
-             "one entry per (title × platform) combination.",
-             Inches(7.0), Inches(6.05), Inches(5.8), Inches(0.65),
-             size=11, italic=True, color=SUBTITLE_C)
+        # Header block
+        add_text(slide, ds_name, x + Inches(0.1), card_top + Inches(0.05),
+                 card_w - Inches(0.2), Inches(0.3), size=13, bold=True, color=ACCENT)
+        add_text(slide, kaggle_id, x + Inches(0.1), card_top + Inches(0.37),
+                 card_w - Inches(0.2), Inches(0.25), size=8, color=SUBTITLE_C)
+        add_text(slide, meta, x + Inches(0.1), card_top + Inches(0.63),
+                 card_w - Inches(0.2), Inches(0.22), size=10, bold=True, color=ACCENT3)
+
+        # Divider
+        add_rect(slide, x + Inches(0.06), card_top + Inches(0.9),
+                 card_w - Inches(0.12), Inches(0.02), ACCENT)
+
+        # Attribute rows
+        y = card_top + Inches(0.96)
+        attr_w = card_w * 0.44
+        map_w  = card_w * 0.53
+        for i, (attr, mapping, is_null) in enumerate(attrs):
+            bg = ROW_A if i % 2 == 0 else ROW_B
+            add_rect(slide, x + Inches(0.06), y, card_w - Inches(0.12), rh, bg)
+            add_text(slide, attr, x + Inches(0.1), y + Inches(0.04),
+                     attr_w - Inches(0.05), rh - Inches(0.04),
+                     size=10, bold=True, color=LIGHT_GREY if is_null else WHITE)
+            add_text(slide, mapping, x + attr_w + Inches(0.08), y + Inches(0.04),
+                     map_w - Inches(0.1), rh - Inches(0.04),
+                     size=10, color=ACCENT3 if is_null else ACCENT2)
+            y += rh
 
 
 # ── Slide 6 – Dataset Comparison ─────────────────────────────────────────────
@@ -436,30 +417,30 @@ def s07_architecture(prs):
         ("OUTPUT",            "main.py",              "Sorted, deduplicated\nCSV dataset"),
     ]
 
-    box_w = Inches(1.95)
+    box_w = Inches(1.75)
     box_h = Inches(1.3)
     y_box = Inches(2.0)
     arrow_y = y_box + box_h / 2 - Inches(0.02)
+    gap = Inches(0.28)   # space between boxes (includes arrow)
 
-    x = Inches(0.35)
+    x = Inches(0.4)
     for i, (stage, script, desc) in enumerate(stages):
         add_rect(slide, x, y_box, box_w, box_h, CARD_BG, ACCENT, Pt(1.5))
         add_text(slide, stage, x + Inches(0.05), y_box + Inches(0.05),
-                 box_w - Inches(0.1), Inches(0.35), size=11, bold=True,
+                 box_w - Inches(0.1), Inches(0.35), size=10, bold=True,
                  color=ACCENT, align=PP_ALIGN.CENTER)
         add_text(slide, script, x + Inches(0.05), y_box + Inches(0.4),
-                 box_w - Inches(0.1), Inches(0.28), size=9,
+                 box_w - Inches(0.1), Inches(0.28), size=8.5,
                  color=ACCENT3, align=PP_ALIGN.CENTER)
         add_text(slide, desc, x + Inches(0.05), y_box + Inches(0.68),
-                 box_w - Inches(0.1), Inches(0.55), size=10,
+                 box_w - Inches(0.1), Inches(0.55), size=9.5,
                  color=LIGHT_GREY, align=PP_ALIGN.CENTER)
         if i < len(stages) - 1:
             ax = x + box_w
-            add_rect(slide, ax, arrow_y, Inches(0.28), Inches(0.08), ACCENT)
-            # arrow head
-            add_text(slide, "▶", ax + Inches(0.18), arrow_y - Inches(0.06),
-                     Inches(0.2), Inches(0.2), size=10, color=ACCENT)
-        x += box_w + Inches(0.35)
+            add_rect(slide, ax, arrow_y, gap - Inches(0.04), Inches(0.07), ACCENT)
+            add_text(slide, "▶", ax + gap - Inches(0.14), arrow_y - Inches(0.07),
+                     Inches(0.18), Inches(0.2), size=9, color=ACCENT)
+        x += box_w + gap
 
     # pairwise strategy
     add_rect(slide, Inches(0.35), Inches(3.55), Inches(12.6), Inches(1.4),
@@ -604,36 +585,42 @@ def s10_apply_mapping(prs):
               "Core function that transforms any source DataFrame into the target schema")
 
     add_code(slide,
-             "def apply_mapping(source: str, df: pd.DataFrame, mapping: dict) -> pd.DataFrame:\n"
+             "def apply_mapping(source, df, mapping):\n"
              "    df = df.copy()\n"
              "\n"
              "    for orig_attr, target_attr in mapping.items():\n"
-             "        if target_attr is None:               # NULL mapping\n"
-             "            df.drop(columns=[orig_attr], inplace=True)\n"
+             "        if target_attr is None:          # NULL\n"
+             "            df.drop(columns=[orig_attr],\n"
+             "                    inplace=True)\n"
              "\n"
-             "        elif isinstance(target_attr, str):    # 1:1 mapping\n"
-             "            df.rename(columns={orig_attr: target_attr}, inplace=True)\n"
+             "        elif isinstance(target_attr, str):  # 1:1\n"
+             "            df.rename(\n"
+             "                columns={orig_attr: target_attr},\n"
+             "                inplace=True)\n"
              "\n"
-             "        elif isinstance(target_attr, dict):   # 1:n mapping\n"
-             "            df = extract_information(df, orig_attr, target_attr)\n"
+             "        elif isinstance(target_attr, dict): # 1:n\n"
+             "            df = extract_information(\n"
+             "                df, orig_attr, target_attr)\n"
              "\n"
              "        else:\n"
-             "            raise ValueError(f\"Invalid mapping for '{orig_attr}': {target_attr}\")\n"
+             "            raise ValueError(\n"
+             "                f\"Invalid mapping: {orig_attr}\")\n"
              "\n"
              "    # Provenance metadata\n"
              "    df['source']     = source\n"
              "    df['provenance'] = f'origin({source})'\n"
              "    return df",
-             Inches(0.35), Inches(1.15), Inches(6.3), Inches(5.0))
+             Inches(0.35), Inches(1.15), Inches(6.3), Inches(5.5))
 
     add_code(slide,
              "def extract_information(df, orig_attr, target_attr):\n"
-             "    \"\"\"Handle 1:n mapping: explode list-of-dicts column.\"\"\"\n"
+             "    \"\"\"1:n mapping: explode list-of-dicts column.\"\"\"\n"
              "    df = df.copy()\n"
              "\n"
-             "    # Parse string representations of lists of dicts\n"
+             "    # Parse string repr of list-of-dicts\n"
              "    df[orig_attr] = df[orig_attr].apply(\n"
-             "        lambda x: ast.literal_eval(x) if pd.notna(x) else [])\n"
+             "        lambda x:\n"
+             "            ast.literal_eval(x) if pd.notna(x) else [])\n"
              "\n"
              "    # One row per list element\n"
              "    df = df.explode(orig_attr)\n"
@@ -643,14 +630,19 @@ def s10_apply_mapping(prs):
              "        lambda x: x if isinstance(x, dict) else {})\n"
              "    extracted_df = pd.json_normalize(extracted)\n"
              "\n"
-             "    # Rename to target column names, drop unmapped\n"
-             "    rename_map = {k: v for k, v in target_attr.items() if v}\n"
-             "    extracted_df = extracted_df.rename(columns=rename_map)\n"
-             "    extracted_df = extracted_df[list(rename_map.values())]\n"
+             "    # Rename to target names, drop unmapped\n"
+             "    rename_map = {k: v\n"
+             "        for k, v in target_attr.items() if v}\n"
+             "    extracted_df = (extracted_df\n"
+             "        .rename(columns=rename_map)\n"
+             "        [list(rename_map.values())])\n"
              "\n"
-             "    df = df.drop(columns=[orig_attr]).reset_index(drop=True)\n"
-             "    return pd.concat([df, extracted_df.reset_index(drop=True)], axis=1)",
-             Inches(6.75), Inches(1.15), Inches(6.2), Inches(5.0))
+             "    df = df.drop(columns=[orig_attr])\n"
+             "           .reset_index(drop=True)\n"
+             "    return pd.concat(\n"
+             "        [df, extracted_df.reset_index(drop=True)],\n"
+             "        axis=1)",
+             Inches(6.75), Inches(1.15), Inches(6.2), Inches(5.5))
 
     footer(slide,
            "Dataset 3: 14 055 source rows  →  ~52 000 rows after 1:n expansion (one row per title × platform)")
@@ -936,7 +928,7 @@ def s14_matching(prs):
 
     add_text(slide,
              "score(a,b)  =  0.85 · lev_sim(title_a, title_b)  +  0.15 · date_sim(date_a, date_b)     ≥ 0.85  →  MATCH",
-             Inches(0.35), Inches(6.6), Inches(12.6), Inches(0.4),
+             Inches(0.35), Inches(7), Inches(12.6), Inches(0.4),
              size=14, bold=True, color=ACCENT2, align=PP_ALIGN.CENTER)
 
 
@@ -954,7 +946,7 @@ def s15_blocking(prs):
              "64 017 × 18 800 ≈ 1.2 billion comparisons — computationally infeasible. "
              "Blocking partitions the data so each record is only compared against a small, "
              "relevant subset.",
-             Inches(0.35), Inches(1.5), Inches(12.6), Inches(0.6),
+             Inches(0.35), Inches(1.5), Inches(6.6), Inches(0.6),
              size=12, color=LIGHT_GREY)
 
     add_text(slide, "Two-Level Blocking", Inches(0.35), Inches(2.2),
@@ -1012,7 +1004,7 @@ def s15_blocking(prs):
              "    for key, block in platform_year_blocks.items():\n"
              "        if key[0] == plat:\n"
              "            block['indices'].extend(idxs)",
-             Inches(6.65), Inches(1.15), Inches(6.3), Inches(5.5))
+             Inches(6.88), Inches(1.24), Inches(6.3), Inches(5.5))
 
     add_text(slide, "Greedy matching: each matched record in the larger dataset is "
              "removed from consideration → prevents duplicate assignments",
@@ -1045,16 +1037,16 @@ def s16_merging(prs):
              "    'source':        UNION,  # list all contributing sources\n"
              "    'provenance':    NOTHING,# handled separately\n"
              "}",
-             Inches(0.35), Inches(1.15), Inches(6.1), Inches(4.5))
+             Inches(0.35), Inches(1.15), Inches(6.1), Inches(3.2))
 
     add_code(slide,
              "def merge_records(row1, row2):\n"
              "    merged = {'provenance': ''}\n"
              "    src1, src2 = row1['source'], row2['source']\n"
-             "\n"
-             "    for col in set(row1) | set(row2) - {'provenance'}:\n"
-             "        v1, v2 = row1.get(col, pd.NA), row2.get(col, pd.NA)\n"
-             "\n"
+             "    all_cols = (set(row1) | set(row2)) - {'provenance'}\n"
+             "    for col in all_cols:\n"
+             "        v1 = row1.get(col, pd.NA)\n"
+             "        v2 = row2.get(col, pd.NA)\n"
              "        if has_value(v1) and has_value(v2):\n"
              "            if v1 == v2:\n"
              "                merged[col] = v1\n"
@@ -1070,9 +1062,11 @@ def s16_merging(prs):
              "                elif res == UNION:\n"
              "                    merged[col] = union_delimited(v1, v2)\n"
              "                    prov = f'{col}=union({src1},{src2})'\n"
-             "                else: merged[col] = v1  # NOTHING: prefer row1\n"
-             "            merged['provenance'] = union_delimited(\n"
-             "                merged['provenance'], prov, delimiter=',')\n"
+             "                else:  # NOTHING\n"
+             "                    merged[col] = v1; prov = ''\n"
+             "            if prov:\n"
+             "                merged['provenance'] = union_delimited(\n"
+             "                    merged['provenance'], prov, ',')\n"
              "        elif has_value(v1):\n"
              "            merged[col] = v1\n"
              "            merged['provenance'] += f',{col}=single({src1})'\n"
@@ -1082,17 +1076,17 @@ def s16_merging(prs):
              "        else:\n"
              "            merged[col] = pd.NA\n"
              "    return merged",
-             Inches(6.55), Inches(1.15), Inches(6.43), Inches(5.5))
+             Inches(6.55), Inches(1.15), Inches(6.43), Inches(5.5), size=8.5)
 
-    add_rect(slide, Inches(0.35), Inches(5.8), Inches(5.85), Inches(1.45),
+    add_rect(slide, Inches(0.35), Inches(4.5), Inches(5.85), Inches(1.45),
              RGBColor(0x20, 0x20, 0x3A))
-    add_text(slide, "Provenance example (output field):", Inches(0.5), Inches(5.88),
+    add_text(slide, "Provenance example (output field):", Inches(0.5), Inches(4.58),
              Inches(5.5), Inches(0.28), size=12, bold=True, color=ACCENT)
     add_text(slide,
              "title=max(ds1,ds2), release_date=min(ds1,ds2),\n"
              "genre=union(ds1,ds3), summary=single(ds2),\n"
              "critic_score=single(ds1), user_score=eq(ds2,ds3)",
-             Inches(0.5), Inches(6.18), Inches(5.5), Inches(0.95),
+             Inches(0.5), Inches(4.88), Inches(5.5), Inches(0.95),
              size=11, color=ACCENT2)
 
 
@@ -1318,9 +1312,8 @@ def main():
     s01_title(prs)
     s02_toc(prs)
     s03_motivation(prs)
-    s04_ds1(prs)
-    s05_ds23(prs)
-    s06_comparison(prs)
+    s04_datasets(prs)        # all three datasets on one slide
+    s06_comparison(prs)      # attribute coverage matrix
     s07_architecture(prs)
     s08_extraction(prs)
     s09_schema_concepts(prs)
